@@ -24,8 +24,6 @@ operational visibility.
 ### Authentication
 All endpoints (except \`/auth/login\`) require a **Bearer JWT token** in the \`Authorization\` header.
       `,
-      contact: { name: 'Sri Lanka Police ICT Division', email: 'ict@police.lk' },
-      license: { name: 'Government of Sri Lanka' },
     },
     servers: [
       { url: 'http://localhost:3000/api/v1', description: 'Local Development' },

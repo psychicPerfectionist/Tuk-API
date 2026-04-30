@@ -4,7 +4,7 @@
 //   node scripts/e2e.js                # starts app on a random port
 //   node scripts/e2e.js http://localhost:3000
 
-const { app, initDatabase } = require('../src/app');
+const app = require('../src/app');
 
 function fail(message) {
   console.error(`✗ ${message}`);
@@ -60,8 +60,6 @@ async function requestText(baseUrl, method, path) {
 }
 
 async function startEphemeralServer() {
-  await initDatabase();
-
   return await new Promise((resolve, reject) => {
     const server = app.listen(0, () => {
       const address = server.address();
@@ -95,9 +93,9 @@ async function run() {
   try {
     // Health
     {
-      const res = await requestJson(baseUrl, 'GET', '/api/health');
-      if (res.status !== 200) fail(`GET /api/health expected 200, got ${res.status}`);
-      else ok('GET /api/health');
+      const res = await requestJson(baseUrl, 'GET', '/api/v1/health');
+      if (res.status !== 200) fail(`GET /api/v1/health expected 200, got ${res.status}`);
+      else ok('GET /api/v1/health');
     }
 
     // Docs
@@ -106,56 +104,56 @@ async function run() {
       if (res.status !== 200) fail(`GET /api-docs expected 200, got ${res.status}`);
       else ok('GET /api-docs');
 
-      const jsonRes = await requestJson(baseUrl, 'GET', '/api/swagger.json');
-      if (jsonRes.status !== 200) fail(`GET /api/swagger.json expected 200, got ${jsonRes.status}`);
+      const jsonRes = await requestJson(baseUrl, 'GET', '/api-spec.json');
+      if (jsonRes.status !== 200) fail(`GET /api-spec.json expected 200, got ${jsonRes.status}`);
       else if (!jsonRes.json || !jsonRes.json.openapi) fail('OpenAPI JSON missing `openapi` field');
-      else ok('GET /api/swagger.json');
+      else ok('GET /api-spec.json');
     }
 
     // Login as ADMIN
     let adminToken = null;
     {
-      const res = await requestJson(baseUrl, 'POST', '/api/auth/login', {
+      const res = await requestJson(baseUrl, 'POST', '/api/v1/auth/login', {
         body: { username: 'admin', password: 'Admin@1234' },
       });
-      if (res.status !== 200 || !res.json || !res.json.token) {
+      if (res.status !== 200 || !res.json || !res.json.data.token) {
         fail(`ADMIN login failed (status ${res.status})`);
       } else {
-        adminToken = res.json.token;
-        ok('POST /api/auth/login (ADMIN)');
+        adminToken = res.json.data.token;
+        ok('POST /api/v1/auth/login (ADMIN)');
       }
     }
 
     // ADMIN protected endpoints
     {
-      const me = await requestJson(baseUrl, 'GET', '/api/auth/me', { token: adminToken });
-      if (me.status !== 200 || !me.json || me.json.success !== true) fail('ADMIN GET /api/auth/me failed');
-      else ok('GET /api/auth/me (ADMIN)');
+      const me = await requestJson(baseUrl, 'GET', '/api/v1/auth/me', { token: adminToken });
+      if (me.status !== 200 || !me.json || me.json.status !== 'success') fail('ADMIN GET /api/v1/auth/me failed');
+      else ok('GET /api/v1/auth/me (ADMIN)');
 
-      const provinces = await requestJson(baseUrl, 'GET', '/api/provinces', { token: adminToken });
-      if (provinces.status !== 200 || !provinces.json || provinces.json.success !== true) fail('ADMIN GET /api/provinces failed');
-      else ok('GET /api/provinces (ADMIN)');
+      const provinces = await requestJson(baseUrl, 'GET', '/api/v1/provinces', { token: adminToken });
+      if (provinces.status !== 200 || !provinces.json || provinces.json.status !== 'success') fail('ADMIN GET /api/v1/provinces failed');
+      else ok('GET /api/v1/provinces (ADMIN)');
 
-      const vehicles = await requestJson(baseUrl, 'GET', '/api/vehicles?limit=1', { token: adminToken });
-      if (vehicles.status !== 200 || !vehicles.json || vehicles.json.success !== true) fail('ADMIN GET /api/vehicles failed');
-      else ok('GET /api/vehicles (ADMIN)');
+      const vehicles = await requestJson(baseUrl, 'GET', '/api/v1/vehicles?limit=1', { token: adminToken });
+      if (vehicles.status !== 200 || !vehicles.json || vehicles.json.status !== 'success') fail('ADMIN GET /api/v1/vehicles failed');
+      else ok('GET /api/v1/vehicles (ADMIN)');
     }
 
     // Login as DEVICE and push a location
     let deviceToken = null;
     let vehicleId = null;
     {
-      const res = await requestJson(baseUrl, 'POST', '/api/auth/login', {
-        body: { username: 'device_dev_0001', password: 'Device@5678' },
+      const res = await requestJson(baseUrl, 'POST', '/api/v1/auth/login', {
+        body: { username: 'device_dev-0001', password: 'Device@5678' },
       });
-      if (res.status !== 200 || !res.json || !res.json.token) {
+      if (res.status !== 200 || !res.json || !res.json.data.token) {
         fail(`DEVICE login failed (status ${res.status})`);
       } else {
-        deviceToken = res.json.token;
-        ok('POST /api/auth/login (DEVICE)');
+        deviceToken = res.json.data.token;
+        ok('POST /api/v1/auth/login (DEVICE)');
 
         const payload = decodeJwtPayload(deviceToken);
-        vehicleId = payload && payload.vehicle_id;
+        vehicleId = payload && payload.vehicleId;
         if (!vehicleId) fail('DEVICE token payload missing vehicle_id');
         else ok(`Decoded DEVICE vehicle_id=${vehicleId}`);
       }
@@ -165,10 +163,10 @@ async function run() {
     const testLng = 79.8612;
 
     {
-      const push = await requestJson(baseUrl, 'POST', '/api/locations', {
+      const push = await requestJson(baseUrl, 'POST', '/api/v1/locations', {
         token: deviceToken,
         body: {
-          vehicle_id: vehicleId,
+          vehicleId: vehicleId,
           latitude: testLat,
           longitude: testLng,
           speed: 12.3,
@@ -177,26 +175,26 @@ async function run() {
         },
       });
 
-      if (push.status !== 201 || !push.json || push.json.success !== true) {
-        fail(`DEVICE POST /api/locations expected 201, got ${push.status}`);
+      if (push.status !== 201 || !push.json || push.json.status !== 'success') {
+        fail(`DEVICE POST /api/v1/locations expected 201, got ${push.status}`);
       } else {
-        ok('POST /api/locations (DEVICE)');
+        ok('POST /api/v1/locations (DEVICE)');
       }
     }
 
     // Verify that the pushed ping is now the latest for that vehicle
     {
-      const last = await requestJson(baseUrl, 'GET', `/api/vehicles/${vehicleId}/location`, { token: adminToken });
+      const last = await requestJson(baseUrl, 'GET', `/api/v1/vehicles/${vehicleId}/location`, { token: adminToken });
       const loc = last.json && last.json.data && last.json.data.location;
 
       const closeEnough = (a, b) => typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) < 1e-6;
 
       if (last.status !== 200 || !loc) {
-        fail(`ADMIN GET /api/vehicles/${vehicleId}/location failed (status ${last.status})`);
-      } else if (!closeEnough(loc.latitude, testLat) || !closeEnough(loc.longitude, testLng)) {
-        fail('Last location does not match the newly pushed device ping');
+        fail(`ADMIN GET /api/v1/vehicles/${vehicleId}/location failed (status ${last.status})`);
+      } else if (!closeEnough(loc.coordinates.latitude, testLat) || !closeEnough(loc.coordinates.longitude, testLng)) {
+        fail(`Last location does not match. Expected ${testLat},${testLng} but got ${loc.coordinates.latitude},${loc.coordinates.longitude}`);
       } else {
-        ok('GET /api/vehicles/:id/location reflects latest device ping');
+        ok('GET /api/v1/vehicles/:id/location reflects latest device ping');
       }
     }
 

@@ -2,17 +2,19 @@ const Datastore = require('@seald-io/nedb');
 const path = require('path');
 const fs = require('fs');
 
-const dbDir = path.join(__dirname, '../../data/db');
+const dbDir = path.join(__dirname, process.env.NODE_ENV === 'test' ? '../../data/test-db' : '../../data/db');
 if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
 
+const inMemory = process.env.NODE_ENV === 'test';
+
 const db = {
-  users:     new Datastore({ filename: path.join(dbDir, 'users.db'),     autoload: true }),
-  provinces: new Datastore({ filename: path.join(dbDir, 'provinces.db'), autoload: true }),
-  districts: new Datastore({ filename: path.join(dbDir, 'districts.db'), autoload: true }),
-  stations:  new Datastore({ filename: path.join(dbDir, 'stations.db'),  autoload: true }),
-  vehicles:  new Datastore({ filename: path.join(dbDir, 'vehicles.db'),  autoload: true }),
-  drivers:   new Datastore({ filename: path.join(dbDir, 'drivers.db'),   autoload: true }),
-  locations: new Datastore({ filename: path.join(dbDir, 'locations.db'), autoload: true }),
+  users:     new Datastore({ inMemoryOnly: inMemory, filename: inMemory ? undefined : path.join(dbDir, 'users.db'),     autoload: !inMemory }),
+  provinces: new Datastore({ inMemoryOnly: inMemory, filename: inMemory ? undefined : path.join(dbDir, 'provinces.db'), autoload: !inMemory }),
+  districts: new Datastore({ inMemoryOnly: inMemory, filename: inMemory ? undefined : path.join(dbDir, 'districts.db'), autoload: !inMemory }),
+  stations:  new Datastore({ inMemoryOnly: inMemory, filename: inMemory ? undefined : path.join(dbDir, 'stations.db'),  autoload: !inMemory }),
+  vehicles:  new Datastore({ inMemoryOnly: inMemory, filename: inMemory ? undefined : path.join(dbDir, 'vehicles.db'),  autoload: !inMemory }),
+  drivers:   new Datastore({ inMemoryOnly: inMemory, filename: inMemory ? undefined : path.join(dbDir, 'drivers.db'),   autoload: !inMemory }),
+  locations: new Datastore({ inMemoryOnly: inMemory, filename: inMemory ? undefined : path.join(dbDir, 'locations.db'), autoload: !inMemory }),
 };
 
 // Create indexes for performance

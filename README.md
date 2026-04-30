@@ -1,130 +1,84 @@
 # Sri Lanka Police – Tuk-Tuk Tracking API
 
-> NB6007CEM Web API Development
+> **NB6007CEM Web API Development — Individual Coursework**
+> Student ID: [YOUR_STUDENT_ID_HERE]
 
-A RESTful API for tracking registered three-wheelers (tuk-tuks) across Sri Lanka built with Node.js, Express and SQLite.
+Real-Time Three-Wheeler (Tuk-Tuk) Tracking & Movement Logging System.
 
-## Tech Stack
+## 🌐 Live Deployment
 
-- **Node.js** + **Express** — web framework
-- **sql.js** — SQLite database (pure JavaScript, no native modules needed)
-- **jsonwebtoken** — JWT authentication
-- **bcryptjs** — password hashing
+| Resource | URL |
+|---|---|
+| **API Base URL** | https://tuk-tuk-api.onrender.com/api/v1 |
+| **Swagger UI** | https://tuk-tuk-api.onrender.com/api-docs |
+| **Health Check** | https://tuk-tuk-api.onrender.com/api/v1/health |
 
-## Getting Started
+## 🚀 Quick Start
 
 ```bash
-# 1. Install dependencies
-npm install
-
-# 2. Seed the database
-npm run seed
-
-# 3. Start the server
-npm start
+npm install && npm run seed && npm start
 ```
 
-API runs at: http://localhost:3000  
-Health check: http://localhost:3000/api/health
+## 🧪 Testing & Linting
 
-## API Docs (Swagger)
+```bash
+npm test        # 44 tests
+npm run lint    # zero errors
+```
 
-- Swagger UI: http://localhost:3000/api-docs/
-- OpenAPI JSON: http://localhost:3000/api/swagger.json
-- Compatibility alias: http://localhost:3000/api/v1/swagger
-
-## Default Credentials
+## 🔐 Default Credentials
 
 | Role | Username | Password |
 |---|---|---|
 | ADMIN | admin | Admin@1234 |
 | PROVINCIAL | wp_officer | Admin@1234 |
 | DISTRICT | cmb_officer | Admin@1234 |
-| DEVICE | device_dev_0001 | Device@5678 |
+| DEVICE | device_dev-0001 | Device@5678 |
 
-## API Endpoints
+## 📡 Key Endpoints
 
-### Auth
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | /api/auth/login | Login and get JWT token |
-| POST | /api/auth/register | Create a new user (ADMIN only) |
-| GET | /api/auth/me | Get your own profile |
+| POST | /api/v1/auth/login | Login — get JWT |
+| GET | /api/v1/vehicles | List with sort/filter/pagination |
+| GET | /api/v1/vehicles/:id/location | Last known location |
+| GET | /api/v1/vehicles/:id/history | Movement log (?from=&to=) |
+| GET | /api/v1/locations/live | Live dashboard |
+| POST | /api/v1/locations | Push GPS ping (DEVICE) |
 
-### Vehicles
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /api/vehicles | List all tuk-tuks |
-| POST | /api/vehicles | Register a new tuk-tuk |
-| GET | /api/vehicles/:id | Get one vehicle |
-| PATCH | /api/vehicles/:id | Update a vehicle |
-| DELETE | /api/vehicles/:id | Deregister a vehicle |
-| GET | /api/vehicles/:id/location | Last known location |
-| GET | /api/vehicles/:id/history | Movement history (time window) |
-
-### Locations
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | /api/locations | Push a GPS ping (device) |
-| GET | /api/locations | Query location data |
-| GET | /api/locations/live | Live map (latest per vehicle) |
-
-### Geography
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /api/provinces | All 9 provinces |
-| GET | /api/districts | All 25 districts |
-| GET | /api/stations | Police stations |
-
-### Drivers
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /api/drivers | List drivers |
-| POST | /api/drivers | Register a driver |
-| GET | /api/drivers/:id | Get driver detail |
-| PATCH | /api/drivers/:id | Update driver |
-
-## Filtering & Sorting
+## 🔃 Sorting
 
 ```
-GET /api/vehicles?province_id=1&status=ACTIVE
-GET /api/vehicles?sort=registration_number:asc
-GET /api/vehicles?page=2&limit=20
-GET /api/vehicles/:id/history?from=2026-04-20T00:00:00Z&to=2026-04-21T00:00:00Z
-GET /api/locations/live?district_id=1
+GET /api/v1/vehicles?sort=registrationNumber:asc
+GET /api/v1/drivers?sort=fullName:desc
+GET /api/v1/provinces?sort=name:asc
+GET /api/v1/districts?sort=code:desc
 ```
 
-## Roles
+## 🔑 Roles
 
-| Role | Access |
-|---|---|
-| ADMIN | Full access to everything |
-| PROVINCIAL | Only their province's data |
-| DISTRICT | Only their district's data |
-| DEVICE | Can only push GPS pings for their vehicle |
+| Role | Scope | Push Pings | View |
+|---|---|---|---|
+| ADMIN | All | Yes | Everything |
+| PROVINCIAL | Own province | No | Province |
+| DISTRICT | Own district | No | District |
+| DEVICE | Own vehicle | Yes | None |
 
-## GPS Simulation
-
-```bash
-node scripts/simulate.js http://localhost:3000 device_dev_0001 Device@5678
-```
-
-## Project Structure
+## 📁 Structure
 
 ```
 src/
-├── app.js              — Express setup and server start
-├── db/
-│   ├── database.js     — SQLite setup and helper functions
-│   └── seed.js         — Seeds all test data
-├── middleware/
-│   └── auth.js         — JWT verification and role checks
-├── controllers/
-│   ├── authController.js
-│   ├── vehicleController.js
-│   ├── locationController.js
-│   ├── geoController.js
-│   └── driverController.js
-└── routes/
-    └── index.js        — All API routes
+├── app.js              Express + security middleware
+├── config/             Database + Swagger
+├── middleware/         Auth (JWT/RBAC) + Response helpers
+├── models/             Data model layer (internal entities)
+├── resources/          Resource model layer (client representations)
+├── controllers/        Business logic
+├── validators/         Input validation (express-validator)
+├── routes/             API routes
+└── data/seed.js        Seed script
+tests/api.test.js       44 Jest tests
+nginx/nginx.conf        Production nginx with TLS
 ```
+
+## 📚 NB6007CEM – Web API Development | NIBM / Coventry University

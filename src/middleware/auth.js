@@ -1,45 +1,52 @@
-// middleware/auth.js
-// Checks the JWT token on every request that needs it
-
 const jwt = require('jsonwebtoken');
 
-// Verify the token from the Authorization header
-function protect(req, res, next) {
-  const header = req.headers.authorization;
+/**
+ * User roles in the system:
+ * ADMIN       - HQ / Central administrator (full access)
+ * PROVINCIAL  - Provincial control officer (province-scoped)
+ * DISTRICT    - District / Station officer (district-scoped)
+ * DEVICE      - Tuk-tuk GPS device (location push only)
+ */
+const ROLES = {
+  ADMIN:      'ADMIN',
+  PROVINCIAL: 'PROVINCIAL',
+  DISTRICT:   'DISTRICT',
+  DEVICE:     'DEVICE',
+};
 
-  // Token must be in format: Bearer <token>
-  if (!header || !header.startsWith('Bearer ')) {
+const authenticate = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({
-      success: false,
-      message: 'No token provided. Please login first.',
+      status: 'error',
+      code: 401,
+      message: 'Authorization header missing or malformed. Use: Bearer <token>',
     });
   }
 
-  const token = header.split(' ')[1];
-
+  const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // attach user info to request
+    req.user = decoded;
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ success: false, message: 'Token has expired. Please login again.' });
+      return res.status(401).json({ status: 'error', code: 401, message: 'Token expired. Please log in again.' });
     }
-    return res.status(401).json({ success: false, message: 'Invalid token.' });
+    return res.status(401).json({ status: 'error', code: 401, message: 'Invalid token.' });
   }
-}
+};
 
-// Check if the logged-in user has one of the allowed roles
-function allowRoles(...roles) {
-  return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: `Access denied. This action requires one of these roles: ${roles.join(', ')}`,
-      });
-    }
-    next();
-  };
-}
+const authorize = (...allowedRoles) => (req, res, next) => {
+  if (!req.user) return res.status(401).json({ status: 'error', code: 401, message: 'Unauthenticated.' });
+  if (!allowedRoles.includes(req.user.role)) {
+    return res.status(403).json({
+      status: 'error',
+      code: 403,
+      message: `Access denied. Required role(s): ${allowedRoles.join(', ')}. Your role: ${req.user.role}`,
+    });
+  }
+  next();
+};
 
-module.exports = { protect, allowRoles };
+module.exports = { authenticate, authorize, ROLES };

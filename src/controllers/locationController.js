@@ -1,186 +1,118 @@
-// controllers/locationController.js
+const { dbAsync } = require('../config/database');
+const { successResponse, errorResponse, getPagination, paginationMeta } = require('../middleware/response');
+const { createLocationPingEntity, isWithinSriLanka } = require('../models/locationModel');
+const { toLocationResource } = require('../resources/index');
 
-const { query, run, queryOne } = require('../db/database');
-
-// POST /api/locations  - GPS device pushes a ping
-function pushLocation(req, res) {
+// POST /api/v1/locations — device pushes a GPS ping
+const pushLocation = async (req, res, next) => {
   try {
-    const { vehicle_id, latitude, longitude, speed, heading, accuracy } = req.body;
-
-    if (!vehicle_id || latitude === undefined || longitude === undefined) {
-      return res.status(400).json({ success: false, message: 'vehicle_id, latitude and longitude are required.' });
-    }
+    const { vehicleId, latitude, longitude, speed, heading, accuracy, altitude, satellites, timestamp } = req.body;
 
     const lat = parseFloat(latitude);
     const lng = parseFloat(longitude);
 
-    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      return res.status(400).json({ success: false, message: 'Invalid coordinates.' });
-    }
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180)
+      return errorResponse(res, 400, 'Invalid coordinates. Latitude: -90 to 90. Longitude: -180 to 180.');
 
-    // Sri Lanka boundary check
-    if (lat < 5.7 || lat > 10.0 || lng < 79.4 || lng > 82.0) {
-      return res.status(422).json({ success: false, message: 'Coordinates are outside Sri Lanka.' });
-    }
+    // Data model: coordinate domain validation (Sri Lanka bounds)
+    if (!isWithinSriLanka(lat, lng))
+      return errorResponse(res, 422, 'Coordinates are outside Sri Lanka operational boundary.');
 
-    const vehicle = queryOne('SELECT id, status FROM vehicles WHERE id = ?', [vehicle_id]);
-    if (!vehicle) {
-      return res.status(404).json({ success: false, message: 'Vehicle not found.' });
-    }
-    if (vehicle.status !== 'ACTIVE') {
-      return res.status(403).json({ success: false, message: 'Vehicle is not active.' });
-    }
+    const vehicle = await dbAsync.vehicles.findOne({ _id: vehicleId });
+    if (!vehicle) return errorResponse(res, 404, 'Vehicle not found.');
+    if (vehicle.status !== 'ACTIVE') return errorResponse(res, 403, 'Vehicle is not active. Location updates rejected.');
 
-    // Device tokens can only push for their own vehicle
-    if (req.user.role === 'DEVICE' && req.user.vehicle_id != vehicle_id) {
-      return res.status(403).json({ success: false, message: 'This device is not linked to that vehicle.' });
-    }
+    if (req.user.role === 'DEVICE' && req.user.vehicleId !== vehicleId)
+      return errorResponse(res, 403, 'Device token is not authorised for this vehicle.');
 
-    // Always store ISO timestamps to keep ordering consistent with seeded data
-    const pingedAt = new Date().toISOString();
+    // Data model: build entity via factory (consistent field normalisation)
+    const entity = createLocationPingEntity({ vehicleId, latitude: lat, longitude: lng, speed, heading, accuracy, altitude, satellites, deviceTimestamp: timestamp });
+    const ping   = await dbAsync.locations.insert(entity);
 
-    const pingId = run(
-      'INSERT INTO location_pings (vehicle_id, latitude, longitude, speed, heading, accuracy, pinged_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [vehicle_id, lat, lng, speed || null, heading || null, accuracy || null, pingedAt]
-    );
-
-    return res.status(201).json({
-      success:   true,
-      message:   'Location recorded.',
-      ping_id:   pingId,
-      timestamp: new Date().toISOString(),
+    // Update vehicle's denormalised last-known-location snapshot
+    await dbAsync.vehicles.update({ _id: vehicleId }, {
+      $set: { lastLocation: { latitude: lat, longitude: lng, timestamp: ping.timestamp }, updatedAt: new Date().toISOString() }
     });
 
-  } catch (err) {
-    console.error('pushLocation error:', err.message);
-    return res.status(500).json({ success: false, message: 'Something went wrong.' });
-  }
-}
+    // Resource model: return minimal acknowledgement (device doesn't need full resource)
+    return successResponse(res, { pingId: ping._id, timestamp: ping.timestamp, receivedAt: ping.receivedAt }, null, 201);
+  } catch (err) { next(err); }
+};
 
-// GET /api/locations/live  - latest ping for every active vehicle
-function getLiveView(req, res) {
+// GET /api/v1/locations — police query with filters
+const getLocations = async (req, res, next) => {
   try {
-    const { province_id, district_id } = req.query;
+    const { from, to, vehicleId, provinceId, districtId, stationId } = req.query;
+    const { page, limit, skip } = getPagination(req.query);
 
-    let conditions = ["v.status = 'ACTIVE'"];
-    let params     = [];
+    let scopeProvinceId = provinceId;
+    let scopeDistrictId  = districtId;
+    if (req.user.role === 'PROVINCIAL' && req.user.provinceId) scopeProvinceId = req.user.provinceId;
+    if (req.user.role === 'DISTRICT'   && req.user.districtId) scopeDistrictId  = req.user.districtId;
 
-    // Scope by role
-    if (req.user.role === 'PROVINCIAL' && req.user.province_id) {
-      conditions.push('v.province_id = ?');
-      params.push(req.user.province_id);
-    } else if (req.user.role === 'DISTRICT' && req.user.district_id) {
-      conditions.push('v.district_id = ?');
-      params.push(req.user.district_id);
+    const vehicleQuery = {};
+    if (vehicleId)       vehicleQuery._id        = vehicleId;
+    if (scopeProvinceId) vehicleQuery.provinceId = scopeProvinceId;
+    if (scopeDistrictId)  vehicleQuery.districtId  = scopeDistrictId;
+    if (stationId)       vehicleQuery.stationId  = stationId;
+
+    let vehicleIds;
+    if (Object.keys(vehicleQuery).length > 0) {
+      const vehicles = await dbAsync.vehicles.find(vehicleQuery, { _id: 1 });
+      vehicleIds = vehicles.map(v => v._id);
+      if (!vehicleIds.length) return successResponse(res, [], paginationMeta(0, page, limit));
     }
 
-    if (province_id) { conditions.push('v.province_id = ?'); params.push(province_id); }
-    if (district_id)  { conditions.push('v.district_id = ?');  params.push(district_id);  }
+    const locQuery = {};
+    if (vehicleIds) locQuery.vehicleId = { $in: vehicleIds };
+    if (from || to) {
+      locQuery.timestamp = {};
+      if (from) locQuery.timestamp.$gte = new Date(from).toISOString();
+      if (to)   locQuery.timestamp.$lte = new Date(to).toISOString();
+    }
 
-    const where = 'WHERE ' + conditions.join(' AND ');
+    const all   = await dbAsync.locations.findWithSort(locQuery, { timestamp: -1 });
+    const total = all.length;
+    const paged = all.slice(skip, skip + limit);
 
-    // Get the latest ping for each vehicle using a subquery
-    const liveData = query(`
-      SELECT
-        v.id                  AS vehicle_id,
-        v.registration_number,
-        v.make,
-        v.colour,
-        d.full_name           AS driver,
-        p.name                AS province,
-        dist.name             AS district,
-        lp.latitude,
-        lp.longitude,
-        lp.speed,
-        lp.pinged_at          AS last_seen
-      FROM vehicles v
-      LEFT JOIN drivers   d    ON v.driver_id   = d.id
-      LEFT JOIN provinces p    ON v.province_id = p.id
-      LEFT JOIN districts dist ON v.district_id = dist.id
-      LEFT JOIN location_pings lp ON lp.id = (
-        SELECT id FROM location_pings
-        WHERE vehicle_id = v.id
-        ORDER BY id DESC
-        LIMIT 1
-      )
-      ${where}
-      AND lp.id IS NOT NULL
-      ORDER BY lp.pinged_at DESC
-    `, params);
+    // Resource model: each ping becomes a full location resource
+    const resources = await Promise.all(paged.map(async (ping) => {
+      const vehicle = await dbAsync.vehicles.findOne({ _id: ping.vehicleId }, { registrationNumber: 1 });
+      return toLocationResource(ping, vehicle);
+    }));
 
-    return res.status(200).json({
-      success: true,
-      count:   liveData.length,
-      as_of:   new Date().toISOString(),
-      data:    liveData,
-    });
+    return successResponse(res, resources, paginationMeta(total, page, limit));
+  } catch (err) { next(err); }
+};
 
-  } catch (err) {
-    console.error('getLiveView error:', err.message);
-    return res.status(500).json({ success: false, message: 'Something went wrong.' });
-  }
-}
-
-// GET /api/locations  - filtered historical query
-function getLocations(req, res) {
+// GET /api/v1/locations/live — latest ping per active vehicle (dashboard)
+const getLiveView = async (req, res, next) => {
   try {
-    const { vehicle_id, province_id, district_id, from, to, page = 1, limit = 50 } = req.query;
+    const vehicleQuery = { status: 'ACTIVE' };
+    if (req.query.provinceId) vehicleQuery.provinceId = req.query.provinceId;
+    if (req.query.districtId)  vehicleQuery.districtId  = req.query.districtId;
+    if (req.user.role === 'PROVINCIAL' && req.user.provinceId) vehicleQuery.provinceId = req.user.provinceId;
+    if (req.user.role === 'DISTRICT'   && req.user.districtId) vehicleQuery.districtId  = req.user.districtId;
 
-    let conditions = [];
-    let params     = [];
+    const vehicles  = await dbAsync.vehicles.find(vehicleQuery);
+    const liveItems = await Promise.all(vehicles.map(async (v) => {
+      const lastPings = await dbAsync.locations.findWithSort({ vehicleId: v._id }, { timestamp: -1 }, 1);
+      const driver    = v.driverId ? await dbAsync.drivers.findOne({ _id: v.driverId }, { fullName: 1 }) : null;
+      if (!lastPings.length) return null;
 
-    if (vehicle_id)  { conditions.push('lp.vehicle_id = ?');   params.push(vehicle_id);  }
-    if (province_id) { conditions.push('v.province_id = ?');   params.push(province_id); }
-    if (district_id)  { conditions.push('v.district_id = ?');   params.push(district_id);  }
-    if (from)        { conditions.push('lp.pinged_at >= ?');    params.push(from);         }
-    if (to)          { conditions.push('lp.pinged_at <= ?');    params.push(to);           }
+      // Resource model: live view is a simplified representation
+      return {
+        vehicleId:          v._id,
+        href:               `/api/v1/vehicles/${v._id}`,
+        registrationNumber: v.registrationNumber,
+        driver:             driver ? driver.fullName : null,
+        location:           toLocationResource(lastPings[0], v),
+      };
+    }));
 
-    // Scope by role
-    if (req.user.role === 'PROVINCIAL' && req.user.province_id) {
-      conditions.push('v.province_id = ?');
-      params.push(req.user.province_id);
-    } else if (req.user.role === 'DISTRICT' && req.user.district_id) {
-      conditions.push('v.district_id = ?');
-      params.push(req.user.district_id);
-    }
+    const active = liveItems.filter(Boolean);
+    return successResponse(res, active, { total: active.length, asOf: new Date().toISOString() });
+  } catch (err) { next(err); }
+};
 
-    const where    = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
-    const pageNum  = Math.max(1, parseInt(page));
-    const pageSize = Math.min(500, Math.max(1, parseInt(limit)));
-    const offset   = (pageNum - 1) * pageSize;
-
-    const countResult = query(
-      `SELECT COUNT(*) as total FROM location_pings lp JOIN vehicles v ON lp.vehicle_id = v.id ${where}`,
-      params
-    );
-    const total = countResult[0] ? countResult[0].total : 0;
-
-    const pings = query(`
-      SELECT
-        lp.id, lp.vehicle_id, v.registration_number,
-        lp.latitude, lp.longitude, lp.speed, lp.heading, lp.pinged_at
-      FROM location_pings lp
-      JOIN vehicles v ON lp.vehicle_id = v.id
-      ${where}
-      ORDER BY lp.id DESC
-      LIMIT ? OFFSET ?
-    `, [...params, pageSize, offset]);
-
-    return res.status(200).json({
-      success: true,
-      data:    pings,
-      meta: {
-        total,
-        page:       pageNum,
-        limit:      pageSize,
-        totalPages: Math.ceil(total / pageSize),
-      },
-    });
-
-  } catch (err) {
-    console.error('getLocations error:', err.message);
-    return res.status(500).json({ success: false, message: 'Something went wrong.' });
-  }
-}
-
-module.exports = { pushLocation, getLiveView, getLocations };
+module.exports = { pushLocation, getLocations, getLiveView };

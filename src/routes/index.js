@@ -1,66 +1,80 @@
-// routes/index.js
-// All API routes defined in one place - easy to read and follow
-
 const express = require('express');
 const router  = express.Router();
+const { authenticate, authorize, ROLES } = require('../middleware/auth');
+const V = require('../validators/index');
 
-const { protect, allowRoles } = require('../middleware/auth');
+const authCtrl  = require('../controllers/authController');
+const vehicleCtrl = require('../controllers/vehicleController');
+const locationCtrl = require('../controllers/locationController');
+const {
+  getProvinces, getProvinceById, createProvince, updateProvince, deleteProvince,
+  getDistricts, getDistrictById, createDistrict, updateDistrict, deleteDistrict,
+  getStations,  getStationById,  createStation,  updateStation,  deleteStation,
+  getDrivers,   getDriverById,   createDriver,   updateDriver,   deleteDriver,
+  getUsers,     getUserById,     updateUser,     deleteUser,
+} = require('../controllers/allControllers');
 
-const auth     = require('../controllers/authController');
-const vehicles = require('../controllers/vehicleController');
-const locations = require('../controllers/locationController');
-const geo      = require('../controllers/geoController');
-const drivers  = require('../controllers/driverController');
+const ADMIN_PROV  = [ROLES.ADMIN, ROLES.PROVINCIAL];
+const ALL_OFFICERS = [ROLES.ADMIN, ROLES.PROVINCIAL, ROLES.DISTRICT];
 
-// ── AUTH (no token needed for login) ──────────────────────────────────────────
-router.post('/auth/login',    auth.login);
-router.post('/auth/register', protect, allowRoles('ADMIN'), auth.register);
-router.get ('/auth/me',       protect, auth.me);
+// ── HEALTH ────────────────────────────────────────────────────────────────────
+router.get('/health', (req, res) => res.json({
+  status: 'ok', service: 'Tuk-Tuk Tracking API', version: '1.0.0',
+  timestamp: new Date().toISOString(),
+}));
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+router.post('/auth/login',    V.validateLogin,    authCtrl.login);
+router.post('/auth/register', authenticate, authorize(ROLES.ADMIN), V.validateRegister, authCtrl.register);
+router.get ('/auth/me',       authenticate, authCtrl.me);
 
 // ── PROVINCES ─────────────────────────────────────────────────────────────────
-router.get ('/provinces',     protect, allowRoles('ADMIN', 'PROVINCIAL', 'DISTRICT'), geo.getProvinces);
-router.post('/provinces',     protect, allowRoles('ADMIN'), geo.createProvince);
-router.get ('/provinces/:id', protect, allowRoles('ADMIN', 'PROVINCIAL', 'DISTRICT'), geo.getProvinceById);
+router.get   ('/provinces',     authenticate, authorize(...ALL_OFFICERS, ROLES.DEVICE), V.validatePaginationQuery, getProvinces);
+router.post  ('/provinces',     authenticate, authorize(ROLES.ADMIN), V.validateCreateProvince, createProvince);
+router.get   ('/provinces/:id', authenticate, authorize(...ALL_OFFICERS), getProvinceById);
+router.patch ('/provinces/:id', authenticate, authorize(ROLES.ADMIN), updateProvince);
+router.delete('/provinces/:id', authenticate, authorize(ROLES.ADMIN), deleteProvince);
 
 // ── DISTRICTS ─────────────────────────────────────────────────────────────────
-router.get ('/districts',     protect, allowRoles('ADMIN', 'PROVINCIAL', 'DISTRICT'), geo.getDistricts);
-router.post('/districts',     protect, allowRoles('ADMIN'), geo.createDistrict);
-router.get ('/districts/:id', protect, allowRoles('ADMIN', 'PROVINCIAL', 'DISTRICT'), geo.getDistrictById);
+router.get   ('/districts',     authenticate, authorize(...ALL_OFFICERS), V.validatePaginationQuery, getDistricts);
+router.post  ('/districts',     authenticate, authorize(ROLES.ADMIN), V.validateCreateDistrict, createDistrict);
+router.get   ('/districts/:id', authenticate, authorize(...ALL_OFFICERS), getDistrictById);
+router.patch ('/districts/:id', authenticate, authorize(ROLES.ADMIN), updateDistrict);
+router.delete('/districts/:id', authenticate, authorize(ROLES.ADMIN), deleteDistrict);
 
 // ── STATIONS ──────────────────────────────────────────────────────────────────
-router.get ('/stations',     protect, allowRoles('ADMIN', 'PROVINCIAL', 'DISTRICT'), geo.getStations);
-router.post('/stations',     protect, allowRoles('ADMIN', 'PROVINCIAL'), geo.createStation);
-router.get ('/stations/:id', protect, allowRoles('ADMIN', 'PROVINCIAL', 'DISTRICT'), geo.getStationById);
+router.get   ('/stations',     authenticate, authorize(...ALL_OFFICERS), V.validatePaginationQuery, getStations);
+router.post  ('/stations',     authenticate, authorize(...ADMIN_PROV),  V.validateCreateStation,   createStation);
+router.get   ('/stations/:id', authenticate, authorize(...ALL_OFFICERS), getStationById);
+router.patch ('/stations/:id', authenticate, authorize(...ADMIN_PROV),  updateStation);
+router.delete('/stations/:id', authenticate, authorize(ROLES.ADMIN),   deleteStation);
 
 // ── VEHICLES ──────────────────────────────────────────────────────────────────
-router.get   ('/vehicles',              protect, allowRoles('ADMIN', 'PROVINCIAL', 'DISTRICT'), vehicles.getAllVehicles);
-router.post  ('/vehicles',              protect, allowRoles('ADMIN', 'PROVINCIAL'), vehicles.createVehicle);
-router.get   ('/vehicles/:id',          protect, allowRoles('ADMIN', 'PROVINCIAL', 'DISTRICT'), vehicles.getVehicleById);
-router.patch ('/vehicles/:id',          protect, allowRoles('ADMIN', 'PROVINCIAL'), vehicles.updateVehicle);
-router.delete('/vehicles/:id',          protect, allowRoles('ADMIN'), vehicles.deleteVehicle);
-router.get   ('/vehicles/:id/location', protect, allowRoles('ADMIN', 'PROVINCIAL', 'DISTRICT'), vehicles.getLastLocation);
-router.get   ('/vehicles/:id/history',  protect, allowRoles('ADMIN', 'PROVINCIAL', 'DISTRICT'), vehicles.getLocationHistory);
+router.get   ('/vehicles',              authenticate, authorize(...ALL_OFFICERS), V.validatePaginationQuery, vehicleCtrl.getVehicles);
+router.post  ('/vehicles',              authenticate, authorize(...ADMIN_PROV),  V.validateCreateVehicle,   vehicleCtrl.createVehicle);
+router.get   ('/vehicles/:id',          authenticate, authorize(...ALL_OFFICERS), vehicleCtrl.getVehicleById);
+router.patch ('/vehicles/:id',          authenticate, authorize(...ADMIN_PROV),  V.validateUpdateVehicle,   vehicleCtrl.updateVehicle);
+router.delete('/vehicles/:id',          authenticate, authorize(ROLES.ADMIN),   vehicleCtrl.deleteVehicle);
+router.get   ('/vehicles/:id/location', authenticate, authorize(...ALL_OFFICERS), vehicleCtrl.getLastLocation);
+router.get   ('/vehicles/:id/history',  authenticate, authorize(...ALL_OFFICERS), V.validateHistoryQuery, vehicleCtrl.getLocationHistory);
 
 // ── LOCATIONS ─────────────────────────────────────────────────────────────────
-// live must come before /:id style routes
-router.get ('/locations/live', protect, allowRoles('ADMIN', 'PROVINCIAL', 'DISTRICT'), locations.getLiveView);
-router.post('/locations',      protect, allowRoles('DEVICE', 'ADMIN', 'PROVINCIAL', 'DISTRICT'), locations.pushLocation);
-router.get ('/locations',      protect, allowRoles('ADMIN', 'PROVINCIAL', 'DISTRICT'), locations.getLocations);
+// Note: live must come BEFORE :id to avoid Express treating "live" as an ID
+router.get ('/locations/live', authenticate, authorize(...ALL_OFFICERS), locationCtrl.getLiveView);
+router.post('/locations',      authenticate, authorize(ROLES.DEVICE, ...ALL_OFFICERS), V.validatePushLocation, locationCtrl.pushLocation);
+router.get ('/locations',      authenticate, authorize(...ALL_OFFICERS), V.validatePaginationQuery, locationCtrl.getLocations);
 
 // ── DRIVERS ───────────────────────────────────────────────────────────────────
-router.get  ('/drivers',     protect, allowRoles('ADMIN', 'PROVINCIAL', 'DISTRICT'), drivers.getAllDrivers);
-router.post ('/drivers',     protect, allowRoles('ADMIN', 'PROVINCIAL'), drivers.createDriver);
-router.get  ('/drivers/:id', protect, allowRoles('ADMIN', 'PROVINCIAL', 'DISTRICT'), drivers.getDriverById);
-router.patch('/drivers/:id', protect, allowRoles('ADMIN', 'PROVINCIAL'), drivers.updateDriver);
+router.get   ('/drivers',     authenticate, authorize(...ALL_OFFICERS), V.validatePaginationQuery, getDrivers);
+router.post  ('/drivers',     authenticate, authorize(...ADMIN_PROV),  V.validateCreateDriver,    createDriver);
+router.get   ('/drivers/:id', authenticate, authorize(...ALL_OFFICERS), getDriverById);
+router.patch ('/drivers/:id', authenticate, authorize(...ADMIN_PROV),  updateDriver);
+router.delete('/drivers/:id', authenticate, authorize(ROLES.ADMIN),   deleteDriver);
 
-// ── HEALTH CHECK ──────────────────────────────────────────────────────────────
-router.get('/health', (req, res) => {
-  res.json({
-    status:    'ok',
-    service:   'Tuk-Tuk Tracking API',
-    version:   '1.0.0',
-    timestamp: new Date().toISOString(),
-  });
-});
+// ── USERS ─────────────────────────────────────────────────────────────────────
+router.get   ('/users',     authenticate, authorize(ROLES.ADMIN), V.validatePaginationQuery, getUsers);
+router.get   ('/users/:id', authenticate, authorize(ROLES.ADMIN), getUserById);
+router.patch ('/users/:id', authenticate, authorize(ROLES.ADMIN), updateUser);
+router.delete('/users/:id', authenticate, authorize(ROLES.ADMIN), deleteUser);
 
 module.exports = router;

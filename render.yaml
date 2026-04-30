@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: tuk-tuk-tracking-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: JWT_DEVICE_EXPIRES_IN
+        value: 365d
+      - key: PORT
+        value: 3000

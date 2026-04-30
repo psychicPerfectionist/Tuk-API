@@ -1,124 +1,74 @@
-// controllers/authController.js
+const bcrypt   = require('bcryptjs');
+const jwt      = require('jsonwebtoken');
+const { dbAsync }  = require('../config/database');
+const { successResponse, errorResponse } = require('../middleware/response');
+const { USER_ROLES, createUserEntity } = require('../models/domainModels');
+const { toUserResource, toAuthResource } = require('../resources/index');
 
-const bcrypt = require('bcryptjs');
-const jwt    = require('jsonwebtoken');
-const { query, run, queryOne } = require('../db/database');
+const generateToken = (user, expiresIn) =>
+  jwt.sign(
+    { id: user._id, username: user.username, role: user.role,
+      provinceId: user.provinceId || null, districtId: user.districtId || null,
+      stationId: user.stationId || null, vehicleId: user.vehicleId || null },
+    process.env.JWT_SECRET,
+    { expiresIn: expiresIn || process.env.JWT_EXPIRES_IN || '8h' }
+  );
 
-// POST /api/auth/login
-async function login(req, res) {
+// POST /api/v1/auth/login
+const login = async (req, res, next) => {
   try {
     const { username, password } = req.body;
+    if (!username || !password) return errorResponse(res, 400, 'username and password are required.');
 
-    if (!username || !password) {
-      return res.status(400).json({ success: false, message: 'Username and password are required.' });
-    }
+    // Data model: raw user entity from DB (includes passwordHash)
+    const user = await dbAsync.users.findOne({ username: username.toLowerCase().trim() });
+    if (!user || !user.isActive) return errorResponse(res, 401, 'Invalid credentials or account inactive.');
 
-    // Find user by username
-    const user = queryOne('SELECT * FROM users WHERE username = ? AND is_active = 1', [username.toLowerCase()]);
+    const match = await bcrypt.compare(password, user.passwordHash);
+    if (!match) return errorResponse(res, 401, 'Invalid credentials.');
 
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid username or password.' });
-    }
-
-    // Check password
-    const passwordOk = await bcrypt.compare(password, user.password);
-    if (!passwordOk) {
-      return res.status(401).json({ success: false, message: 'Invalid username or password.' });
-    }
-
-    // Create JWT token
-    const token = jwt.sign(
-      {
-        id:          user.id,
-        username:    user.username,
-        role:        user.role,
-        province_id: user.province_id,
-        district_id: user.district_id,
-        vehicle_id:  user.vehicle_id,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
-    );
-
-    // Don't send the password back
-    return res.status(200).json({
-      success: true,
-      token,
-      user: {
-        id:        user.id,
-        username:  user.username,
-        full_name: user.full_name,
-        role:      user.role,
-      },
+    // Audit: record last login time and IP (data model fields)
+    await dbAsync.users.update({ _id: user._id }, {
+      $set: { lastLogin: new Date().toISOString(), lastLoginIp: req.ip }
     });
 
-  } catch (err) {
-    console.error('Login error:', err.message);
-    return res.status(500).json({ success: false, message: 'Something went wrong.' });
-  }
-}
+    const expiresIn = user.role === USER_ROLES.DEVICE ? (process.env.JWT_DEVICE_EXPIRES_IN || '365d') : (process.env.JWT_EXPIRES_IN || '8h');
+    const token = generateToken(user, expiresIn);
 
-// POST /api/auth/register  (admin only)
-async function register(req, res) {
+    // Resource model: toAuthResource strips passwordHash and lastLoginIp
+    return successResponse(res, toAuthResource(user, token, expiresIn));
+  } catch (err) { next(err); }
+};
+
+// POST /api/v1/auth/register  (ADMIN only)
+const register = async (req, res, next) => {
   try {
-    const { username, password, full_name, role, province_id, district_id, vehicle_id } = req.body;
+    const { username, password, fullName, role, badgeNumber, provinceId, districtId, stationId, vehicleId } = req.body;
+    if (!username || !password || !role) return errorResponse(res, 400, 'username, password, and role are required.');
+    if (!Object.values(USER_ROLES).includes(role)) return errorResponse(res, 400, `Invalid role. Must be one of: ${Object.values(USER_ROLES).join(', ')}`);
+    if (password.length < 8) return errorResponse(res, 400, 'Password must be at least 8 characters.');
 
-    if (!username || !password || !role) {
-      return res.status(400).json({ success: false, message: 'username, password and role are required.' });
-    }
+    const existing = await dbAsync.users.findOne({ username: username.toLowerCase().trim() });
+    if (existing) return errorResponse(res, 409, 'Username already exists.');
 
-    const validRoles = ['ADMIN', 'PROVINCIAL', 'DISTRICT', 'DEVICE'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({ success: false, message: `Role must be one of: ${validRoles.join(', ')}` });
-    }
+    const passwordHash = await bcrypt.hash(password, 12);
 
-    if (password.length < 8) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters.' });
-    }
+    // Data model: entity factory enforces field structure and defaults
+    const entity  = createUserEntity({ username, passwordHash, fullName, role, badgeNumber, provinceId, districtId, stationId, vehicleId, createdBy: req.user.id });
+    const created = await dbAsync.users.insert(entity);
 
-    // Check username not taken
-    const existing = queryOne('SELECT id FROM users WHERE username = ?', [username.toLowerCase()]);
-    if (existing) {
-      return res.status(409).json({ success: false, message: 'Username already taken.' });
-    }
+    // Resource model: toUserResource excludes passwordHash and audit-only fields
+    return successResponse(res, toUserResource(created), null, 201);
+  } catch (err) { next(err); }
+};
 
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    const id = run(
-      'INSERT INTO users (username, password, full_name, role, province_id, district_id, vehicle_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [username.toLowerCase(), hashedPassword, full_name || username, role, province_id || null, district_id || null, vehicle_id || null]
-    );
-
-    return res.status(201).json({
-      success: true,
-      message: 'User created successfully.',
-      user: { id, username: username.toLowerCase(), role },
-    });
-
-  } catch (err) {
-    console.error('Register error:', err.message);
-    return res.status(500).json({ success: false, message: 'Something went wrong.' });
-  }
-}
-
-// GET /api/auth/me
-function me(req, res) {
+// GET /api/v1/auth/me
+const me = async (req, res, next) => {
   try {
-    const user = queryOne(
-      'SELECT id, username, full_name, role, province_id, district_id, created_at FROM users WHERE id = ?',
-      [req.user.id]
-    );
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found.' });
-    }
-
-    return res.status(200).json({ success: true, data: user });
-
-  } catch (err) {
-    console.error('Me error:', err.message);
-    return res.status(500).json({ success: false, message: 'Something went wrong.' });
-  }
-}
+    const user = await dbAsync.users.findOne({ _id: req.user.id });
+    if (!user) return errorResponse(res, 404, 'User not found.');
+    return successResponse(res, toUserResource(user));
+  } catch (err) { next(err); }
+};
 
 module.exports = { login, register, me };

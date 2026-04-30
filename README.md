@@ -9,9 +9,9 @@ Real-Time Three-Wheeler (Tuk-Tuk) Tracking & Movement Logging System.
 
 | Resource | URL |
 |---|---|
-| **API Base URL** | https://tuk-tuk-api.onrender.com/api/v1 |
-| **Swagger UI** | https://tuk-tuk-api.onrender.com/api-docs |
-| **Health Check** | https://tuk-tuk-api.onrender.com/api/v1/health |
+| **API Base URL** | https://tuk-api-production.up.railway.app/ |
+| **Swagger UI** | https://tuk-api-production.up.railway.app/api-docs |
+| **Health Check** | https://tuk-api-production.up.railway.app/api/v1/health |
 
 ## 🚀 Quick Start
 

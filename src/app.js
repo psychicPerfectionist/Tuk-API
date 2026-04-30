@@ -12,6 +12,7 @@ const { globalErrorHandler, notFoundHandler } = require('./middleware/response')
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 const isProd = process.env.NODE_ENV === 'production';
 
 // ── 1. Trust proxy (nginx sits in front in production) ────────────────────────
@@ -149,10 +150,10 @@ app.use(globalErrorHandler);
 
 // ── 14. Start server ──────────────────────────────────────────────────────────
 if (require.main === module) {
-  app.listen(PORT, '127.0.0.1', () => {
+  app.listen(PORT, HOST, () => {
     console.log('\n🚦 Tuk-Tuk Tracking API');
-    console.log(`   Running  : http://127.0.0.1:${PORT}  (internal only — nginx proxies externally)`);
-    if (!isProd) console.log(`   API Docs : http://localhost:${PORT}/api-docs`);
+    console.log(`   Running  : http://${HOST}:${PORT}  (internal only — nginx proxies externally)`);
+    if (!isProd) console.log(`   API Docs : http://${HOST}:${PORT}/api-docs`);
     console.log(`   Env      : ${process.env.NODE_ENV || 'development'}\n`);
   });
 }

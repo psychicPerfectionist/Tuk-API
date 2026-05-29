@@ -17,7 +17,8 @@ const isProd = process.env.NODE_ENV === 'production';
 
 // ── 1. Trust proxy (nginx sits in front in production) ────────────────────────
 // Required for accurate req.ip and rate-limit keying when behind nginx
-if (isProd) app.set('trust proxy', 1);
+// if (isProd)
+app.set('trust proxy', 1);
 
 // ── 2. Helmet — HTTP security headers ─────────────────────────────────────────
 // Sets: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection,

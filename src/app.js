@@ -30,7 +30,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'"],   // needed for Swagger UI
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:'],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", 'http://localhost:3000', 'https://tuk-api-production.up.railway.app'],  // allow API calls from Swagger UI
     },
   },
   hsts: isProd

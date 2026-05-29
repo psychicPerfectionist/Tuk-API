@@ -27,7 +27,7 @@ All endpoints (except \`/auth/login\`) require a **Bearer JWT token** in the \`A
     },
     servers: [
       { url: 'http://localhost:3000/api/v1', description: 'Local Development' },
-      { url: 'https://tuk-track-api.onrender.com/api/v1', description: 'Production (Render)' },
+      { url: 'https://tuk-api-production.up.railway.app/api/v1', description: 'Production (Railway)' },
     ],
     components: {
       securitySchemes: {

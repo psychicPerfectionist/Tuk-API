@@ -106,7 +106,7 @@ const getLastLocation = async (req, res, next) => {
     const lastPings = await dbAsync.locations.findWithSort({ vehicleId: vehicle._id }, { timestamp: -1 }, 1);
     if (!lastPings.length) return errorResponse(res, 404, 'No location data available for this vehicle.');
     return successResponse(res, {
-      vehicle: { id: vehicle._id, registrationNumber: vehicle.registrationNumber, href: `/api/v1/vehicles/${vehicle._id}` },
+      vehicle: { id: vehicle._id, registrationNumber: vehicle.registrationNumber, href: `/api/v1/vehicles/plate/${encodeURIComponent(vehicle.registrationNumber)}` },
       location: toLocationResource(lastPings[0], vehicle),
     });
   } catch (err) { next(err); }
@@ -125,12 +125,12 @@ const getLocationHistory = async (req, res, next) => {
 
     const maxPoints = Math.min(parseInt(req.query.limit) || 1000, 5000);
     const pings = await dbAsync.locations.findWithSort(
-      { vehicleId: req.params.id, timestamp: { $gte: fromDate.toISOString(), $lte: toDate.toISOString() } },
+      { vehicleId: vehicle._id, timestamp: { $gte: fromDate.toISOString(), $lte: toDate.toISOString() } },
       { timestamp: 1 }, maxPoints
     );
 
     return successResponse(res, {
-      vehicle: { id: vehicle._id, registrationNumber: vehicle.registrationNumber, href: `/api/v1/vehicles/${vehicle._id}` },
+      vehicle: { id: vehicle._id, registrationNumber: vehicle.registrationNumber, href: `/api/v1/vehicles/plate/${encodeURIComponent(vehicle.registrationNumber)}` },
       window:  { from: fromDate.toISOString(), to: toDate.toISOString() },
       count:   pings.length,
       history: pings.map(p => toLocationResource(p, vehicle)),

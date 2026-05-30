@@ -46,7 +46,11 @@ app.use(helmet({
 }));
 
 // ── 3. CORS — locked down in production ──────────────────────────────────────
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean);
+const ALLOWED_ORIGINS = [
+  ...(process.env.CORS_ORIGINS || '').split(',').filter(Boolean),
+  // Railway auto-provides RAILWAY_PUBLIC_DOMAIN — always allow the app's own origin
+  ...(process.env.RAILWAY_PUBLIC_DOMAIN ? [`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`] : []),
+];
 app.use(cors({
   origin: isProd
     ? (origin, cb) => {

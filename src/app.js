@@ -96,7 +96,6 @@ const generalLimiter = rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
-  trustProxy: true,  // trust X-Forwarded-For header from nginx/reverse proxy
   message: { status: 'error', code: 429, message: 'Too many requests. Please slow down.' },
 });
 
@@ -106,7 +105,6 @@ const authLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  trustProxy: true,  // trust X-Forwarded-For header from nginx/reverse proxy
   message: { status: 'error', code: 429, message: 'Too many authentication attempts. Try again in 15 minutes.' },
 });
 
@@ -114,7 +112,6 @@ const authLimiter = rateLimit({
 const devicePingLimiter = rateLimit({
   windowMs: 60 * 1000,   // 1 minute window
   max: 60,          // max 60 pings per minute per IP (1/sec)
-  trustProxy: true,  // trust X-Forwarded-For header from nginx/reverse proxy
   message: { status: 'error', code: 429, message: 'GPS ping rate limit exceeded.' },
 });
 

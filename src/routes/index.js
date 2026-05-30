@@ -44,13 +44,13 @@ router.patch ('/stations/:id', authenticate, authorize(...ADMIN_PROV),  updateSt
 router.delete('/stations/:id', authenticate, authorize(ROLES.ADMIN),   deleteStation);
 
 // ── VEHICLES ──────────────────────────────────────────────────────────────────
-router.get   ('/vehicles',              authenticate, authorize(...ALL_OFFICERS), V.validatePaginationQuery, vehicleCtrl.getVehicles);
-router.post  ('/vehicles',              authenticate, authorize(...ADMIN_PROV),  V.validateCreateVehicle,   vehicleCtrl.createVehicle);
-router.get   ('/vehicles/:id',          authenticate, authorize(...ALL_OFFICERS), vehicleCtrl.getVehicleById);
-router.patch ('/vehicles/:id',          authenticate, authorize(...ADMIN_PROV),  V.validateUpdateVehicle,   vehicleCtrl.updateVehicle);
-router.delete('/vehicles/:id',          authenticate, authorize(ROLES.ADMIN),   vehicleCtrl.deleteVehicle);
-router.get   ('/vehicles/plate/:plate/location', authenticate, authorize(...ALL_OFFICERS), vehicleCtrl.getLastLocation);
-router.get   ('/vehicles/:id/history',  authenticate, authorize(...ALL_OFFICERS), V.validateHistoryQuery, vehicleCtrl.getLocationHistory);
+router.get   ('/vehicles',                        authenticate, authorize(...ALL_OFFICERS), V.validatePaginationQuery, vehicleCtrl.getVehicles);
+router.post  ('/vehicles',                        authenticate, authorize(...ADMIN_PROV),  V.validateCreateVehicle,   vehicleCtrl.createVehicle);
+router.get   ('/vehicles/plate/:plate',           authenticate, authorize(...ALL_OFFICERS), vehicleCtrl.getVehicleById);
+router.patch ('/vehicles/plate/:plate',           authenticate, authorize(...ADMIN_PROV),  V.validateUpdateVehicle,   vehicleCtrl.updateVehicle);
+router.delete('/vehicles/plate/:plate',           authenticate, authorize(ROLES.ADMIN),    vehicleCtrl.deleteVehicle);
+router.get   ('/vehicles/plate/:plate/location',  authenticate, authorize(...ALL_OFFICERS), vehicleCtrl.getLastLocation);
+router.get   ('/vehicles/plate/:plate/history',   authenticate, authorize(...ALL_OFFICERS), V.validateHistoryQuery,    vehicleCtrl.getLocationHistory);
 
 // ── LOCATIONS ─────────────────────────────────────────────────────────────────
 // Note: live must come BEFORE :id to avoid Express treating "live" as an ID
@@ -59,11 +59,11 @@ router.post('/locations',      authenticate, authorize(ROLES.DEVICE, ...ALL_OFFI
 router.get ('/locations',      authenticate, authorize(...ALL_OFFICERS), V.validatePaginationQuery, locationCtrl.getLocations);
 
 // ── DRIVERS ───────────────────────────────────────────────────────────────────
-router.get   ('/drivers',     authenticate, authorize(...ALL_OFFICERS), V.validatePaginationQuery, getDrivers);
-router.post  ('/drivers',     authenticate, authorize(...ADMIN_PROV),  V.validateCreateDriver,    createDriver);
-router.get   ('/drivers/:id', authenticate, authorize(...ALL_OFFICERS), getDriverById);
-router.patch ('/drivers/:id', authenticate, authorize(...ADMIN_PROV),  updateDriver);
-router.delete('/drivers/:id', authenticate, authorize(ROLES.ADMIN),   deleteDriver);
+router.get   ('/drivers',          authenticate, authorize(...ALL_OFFICERS), V.validatePaginationQuery, getDrivers);
+router.post  ('/drivers',          authenticate, authorize(...ADMIN_PROV),  V.validateCreateDriver,    createDriver);
+router.get   ('/drivers/nic/:nic', authenticate, authorize(...ALL_OFFICERS), getDriverById);
+router.patch ('/drivers/nic/:nic', authenticate, authorize(...ADMIN_PROV),  updateDriver);
+router.delete('/drivers/nic/:nic', authenticate, authorize(ROLES.ADMIN),    deleteDriver);
 
 // ── USERS ─────────────────────────────────────────────────────────────────────
 router.get   ('/users',     authenticate, authorize(ROLES.ADMIN), V.validatePaginationQuery, getUsers);

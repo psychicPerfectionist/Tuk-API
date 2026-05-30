@@ -45,12 +45,14 @@ const toLocationSubResource = (ping) => {
  * Minimal reference sub-resource — for linked entities (driver, district, etc.)
  * Provides just enough to identify the related entity; clients follow href for detail.
  */
-const toRefSubResource = (entity, resourcePath) => {
+// idField: the field to use as the URL identifier (defaults to internal _id)
+const toRefSubResource = (entity, resourcePath, idField = '_id') => {
   if (!entity) return null;
+  const identifier = entity[idField];
   return {
     id:   entity._id,
     name: entity.name || entity.fullName || null,
-    href: entity._id ? `${BASE_PATH}/${resourcePath}/${entity._id}` : null,
+    href: identifier ? `${BASE_PATH}/${resourcePath}/${encodeURIComponent(identifier)}` : null,
   };
 };
 
@@ -60,7 +62,7 @@ const toRefSubResource = (entity, resourcePath) => {
  */
 const toVehicleListItem = (vehicle, { driver, district, province, lastPing } = {}) => ({
   id:                 vehicle._id,
-  href:               `${BASE_PATH}/vehicles/${vehicle._id}`,
+  href:               `${BASE_PATH}/vehicles/plate/${encodeURIComponent(vehicle.registrationNumber)}`,
   registrationNumber: vehicle.registrationNumber,
   deviceId:           vehicle.deviceId,
   make:               vehicle.make,
@@ -68,7 +70,7 @@ const toVehicleListItem = (vehicle, { driver, district, province, lastPing } = {
   colour:             vehicle.colour,
   yearOfRegistration: vehicle.yearOfRegistration,
   status:             vehicle.status,
-  driver:             toRefSubResource(driver, 'drivers'),
+  driver:             toRefSubResource(driver, 'drivers/nic', 'nicNumber'),
   district:           toRefSubResource(district, 'districts'),
   province:           toRefSubResource(province, 'provinces'),
   lastLocation:       toLocationSubResource(lastPing),
@@ -83,7 +85,7 @@ const toVehicleDetail = (vehicle, { driver, district, province, station, lastPin
   const includeForensic = role === 'ADMIN' || role === 'PROVINCIAL';
   return {
     id:                 vehicle._id,
-    href:               `${BASE_PATH}/vehicles/${vehicle._id}`,
+    href:               `${BASE_PATH}/vehicles/plate/${encodeURIComponent(vehicle.registrationNumber)}`,
     registrationNumber: vehicle.registrationNumber,
     deviceId:           vehicle.deviceId,
     // deviceImei is NEVER in any resource — it identifies hardware uniquely
@@ -100,7 +102,7 @@ const toVehicleDetail = (vehicle, { driver, district, province, station, lastPin
     }),
 
     // Embedded sub-resources (not raw FK IDs)
-    driver:   toRefSubResource(driver, 'drivers'),
+    driver:   toRefSubResource(driver, 'drivers/nic', 'nicNumber'),
     station:  toRefSubResource(station, 'stations'),
     district: toRefSubResource(district, 'districts'),
     province: toRefSubResource(province, 'provinces'),

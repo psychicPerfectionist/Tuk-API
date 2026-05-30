@@ -24,8 +24,8 @@ const toLocationResource = (ping, vehicleRef = null) => ({
   id:         ping._id,
   href:       `${BASE_PATH}/locations/${ping._id}`,
   vehicle:    vehicleRef
-    ? { id: vehicleRef._id, registrationNumber: vehicleRef.registrationNumber, href: `${BASE_PATH}/vehicles/${vehicleRef._id}` }
-    : { id: ping.vehicleId, href: `${BASE_PATH}/vehicles/${ping.vehicleId}` },
+    ? { id: vehicleRef._id, registrationNumber: vehicleRef.registrationNumber, href: `${BASE_PATH}/vehicles/plate/${encodeURIComponent(vehicleRef.registrationNumber)}` }
+    : { id: ping.vehicleId, href: null },
   coordinates: {
     latitude:  ping.latitude,
     longitude: ping.longitude,
@@ -48,7 +48,7 @@ const toLocationResource = (ping, vehicleRef = null) => ({
  */
 const toDriverListItem = (driver) => ({
   id:            driver._id,
-  href:          `${BASE_PATH}/drivers/${driver._id}`,
+  href:          `${BASE_PATH}/drivers/nic/${encodeURIComponent(driver.nicNumber)}`,
   fullName:      driver.fullName,
   licenseNumber: driver.licenseNumber,
   licenseExpiry: driver.licenseExpiry,
@@ -65,7 +65,7 @@ const toDriverDetail = (driver, vehicles = [], role) => {
   const includePersonal = role === 'ADMIN' || role === 'PROVINCIAL';
   return {
     id:            driver._id,
-    href:          `${BASE_PATH}/drivers/${driver._id}`,
+    href:          `${BASE_PATH}/drivers/nic/${encodeURIComponent(driver.nicNumber)}`,
     fullName:      driver.fullName,
     licenseNumber: driver.licenseNumber,
     licenseExpiry: driver.licenseExpiry,
@@ -80,7 +80,7 @@ const toDriverDetail = (driver, vehicles = [], role) => {
 
     vehicles: vehicles.map(v => ({
       id:                 v._id,
-      href:               `${BASE_PATH}/vehicles/${v._id}`,
+      href:               `${BASE_PATH}/vehicles/plate/${encodeURIComponent(v.registrationNumber)}`,
       registrationNumber: v.registrationNumber,
       status:             v.status,
     })),
@@ -113,7 +113,7 @@ const toStationDetail = (station, { district, province, vehicles = [] } = {}) =>
   address:     station.address,
   vehicles:    vehicles.map(v => ({
     id:                 v._id,
-    href:               `${BASE_PATH}/vehicles/${v._id}`,
+    href:               `${BASE_PATH}/vehicles/plate/${encodeURIComponent(v.registrationNumber)}`,
     registrationNumber: v.registrationNumber,
     status:             v.status,
   })),

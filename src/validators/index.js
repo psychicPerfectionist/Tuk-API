@@ -71,7 +71,8 @@ const validateUpdateVehicle = [
 
 // ── LOCATION PING ─────────────────────────────────────────────────────────────
 const validatePushLocation = [
-  body('vehicleId').notEmpty().withMessage('vehicleId is required.').isString().isLength({ max: 40 }),
+  body('registrationNumber').trim().notEmpty().withMessage('registrationNumber is required.')
+    .isLength({ max: 20 }).matches(/^[A-Z0-9\s-]+$/i).withMessage('Invalid registration number format.'),
   body('latitude').notEmpty().withMessage('latitude is required.')
     .isFloat({ min: -90, max: 90 }).withMessage('latitude must be between -90 and 90.'),
   body('longitude').notEmpty().withMessage('longitude is required.')

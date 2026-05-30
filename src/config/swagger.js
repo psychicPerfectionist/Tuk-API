@@ -191,33 +191,33 @@ All endpoints (except \`/auth/login\`) require a **Bearer JWT token** in the \`A
         get:  { tags: ['Vehicles'], summary: 'List tuk-tuks with last location', parameters: [{ name: 'provinceId', in: 'query', schema: { type: 'string' } }, { name: 'districtId', in: 'query', schema: { type: 'string' } }, { name: 'stationId', in: 'query', schema: { type: 'string' } }, { name: 'status', in: 'query', schema: { type: 'string', enum: ['ACTIVE','SUSPENDED','DEREGISTERED'] } }, { name: 'page', in: 'query', schema: { type: 'integer' } }, { name: 'limit', in: 'query', schema: { type: 'integer' } }], responses: { 200: { description: 'Vehicle list with pagination' } } },
         post: { tags: ['Vehicles'], summary: 'Register new tuk-tuk', requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Vehicle' } } } }, responses: { 201: { description: 'Vehicle registered' } } },
       },
-      '/vehicles/{id}': {
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+      '/vehicles/plate/{plate}': {
+        parameters: [{ name: 'plate', in: 'path', required: true, schema: { type: 'string' }, description: 'Vehicle registration number, e.g. WP CAB-0001' }],
         get:    { tags: ['Vehicles'], summary: 'Get vehicle detail with last location', responses: { 200: { description: 'Vehicle' }, 404: { description: 'Not found' } } },
         patch:  { tags: ['Vehicles'], summary: 'Update vehicle', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } }, responses: { 200: { description: 'Updated' } } },
         delete: { tags: ['Vehicles'], summary: 'Deregister vehicle (ADMIN)', responses: { 204: { description: 'Deregistered' } } },
       },
       '/vehicles/plate/{plate}/location': {
-        parameters: [{ name: 'plate', in: 'path', required: true, schema: { type: 'string' }, description: 'Vehicle registration number, e.g. WP CAB-0001', example: 'WP CAB-0001' }],
+        parameters: [{ name: 'plate', in: 'path', required: true, schema: { type: 'string' }, description: 'Vehicle registration number, e.g. WP CAB-0001' }],
         get: { tags: ['Vehicles'], summary: '🔴 LIVE: Get last known location by registration number', responses: { 200: { description: 'Last GPS ping' }, 404: { description: 'Vehicle not found or no location data' } } },
       },
-      '/vehicles/{id}/history': {
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+      '/vehicles/plate/{plate}/history': {
+        parameters: [{ name: 'plate', in: 'path', required: true, schema: { type: 'string' }, description: 'Vehicle registration number, e.g. WP CAB-0001' }],
         get: { tags: ['Vehicles'], summary: '📍 HISTORY: Movement log for a vehicle (time-window)', parameters: [{ name: 'from', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Start of time window (ISO 8601)' }, { name: 'to', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'End of time window (ISO 8601)' }, { name: 'limit', in: 'query', schema: { type: 'integer', default: 1000 } }], responses: { 200: { description: 'Movement history array' } } },
       },
       '/drivers': {
         get:  { tags: ['Drivers'], summary: 'List drivers', responses: { 200: { description: 'Driver list' } } },
         post: { tags: ['Drivers'], summary: 'Register driver', requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Driver' } } } }, responses: { 201: { description: 'Driver registered' } } },
       },
-      '/drivers/{id}': {
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        get:    { tags: ['Drivers'], summary: 'Get driver detail', responses: { 200: { description: 'Driver' } } },
-        patch:  { tags: ['Drivers'], summary: 'Update driver', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } }, responses: { 200: { description: 'Updated' } } },
-        delete: { tags: ['Drivers'], summary: 'Remove driver (ADMIN)', responses: { 204: { description: 'Removed' } } },
+      '/drivers/nic/{nic}': {
+        parameters: [{ name: 'nic', in: 'path', required: true, schema: { type: 'string' }, description: 'Driver NIC number, e.g. 198512345678V or 200012345678' }],
+        get:    { tags: ['Drivers'], summary: 'Get driver detail by NIC', responses: { 200: { description: 'Driver' }, 404: { description: 'Not found' } } },
+        patch:  { tags: ['Drivers'], summary: 'Update driver by NIC', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } }, responses: { 200: { description: 'Updated' } } },
+        delete: { tags: ['Drivers'], summary: 'Remove driver by NIC (ADMIN)', responses: { 204: { description: 'Removed' } } },
       },
       '/locations': {
-        post: { tags: ['Locations'], summary: '📡 Device: Push GPS ping', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['vehicleId','latitude','longitude'], properties: { vehicleId: { type: 'string' }, latitude: { type: 'number' }, longitude: { type: 'number' }, speed: { type: 'number' }, heading: { type: 'number' }, accuracy: { type: 'number' }, altitude: { type: 'number' }, satellites: { type: 'integer' } } } } } }, responses: { 201: { description: 'Ping recorded' }, 403: { description: 'Vehicle inactive or device not authorized' } } },
-        get:  { tags: ['Locations'], summary: 'Query location data with filters', parameters: [{ name: 'provinceId', in: 'query', schema: { type: 'string' } }, { name: 'districtId', in: 'query', schema: { type: 'string' } }, { name: 'vehicleId', in: 'query', schema: { type: 'string' } }, { name: 'from', in: 'query', schema: { type: 'string', format: 'date-time' } }, { name: 'to', in: 'query', schema: { type: 'string', format: 'date-time' } }, { name: 'page', in: 'query', schema: { type: 'integer' } }, { name: 'limit', in: 'query', schema: { type: 'integer' } }], responses: { 200: { description: 'Filtered location data' } } },
+        post: { tags: ['Locations'], summary: '📡 Device: Push GPS ping', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['registrationNumber','latitude','longitude'], properties: { registrationNumber: { type: 'string', example: 'WP CAB-0001' }, latitude: { type: 'number' }, longitude: { type: 'number' }, speed: { type: 'number' }, heading: { type: 'number' }, accuracy: { type: 'number' }, altitude: { type: 'number' }, satellites: { type: 'integer' } } } } } }, responses: { 201: { description: 'Ping recorded' }, 403: { description: 'Vehicle inactive or device not authorized' } } },
+        get:  { tags: ['Locations'], summary: 'Query location data with filters', parameters: [{ name: 'provinceId', in: 'query', schema: { type: 'string' } }, { name: 'districtId', in: 'query', schema: { type: 'string' } }, { name: 'plate', in: 'query', schema: { type: 'string' }, description: 'Filter by registration number' }, { name: 'from', in: 'query', schema: { type: 'string', format: 'date-time' } }, { name: 'to', in: 'query', schema: { type: 'string', format: 'date-time' } }, { name: 'page', in: 'query', schema: { type: 'integer' } }, { name: 'limit', in: 'query', schema: { type: 'integer' } }], responses: { 200: { description: 'Filtered location data' } } },
       },
       '/locations/live': {
         get: { tags: ['Locations'], summary: '🗺 Live dashboard: Latest ping per vehicle', parameters: [{ name: 'provinceId', in: 'query', schema: { type: 'string' } }, { name: 'districtId', in: 'query', schema: { type: 'string' } }], responses: { 200: { description: 'Live vehicle positions' } } },

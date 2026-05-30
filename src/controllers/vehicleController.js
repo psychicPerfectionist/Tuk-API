@@ -40,9 +40,12 @@ const getVehicles = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const findByPlate = (plate) =>
+  dbAsync.vehicles.findOne({ registrationNumber: decodeURIComponent(plate).toUpperCase() });
+
 const getVehicleById = async (req, res, next) => {
   try {
-    const vehicle = await dbAsync.vehicles.findOne({ _id: req.params.id });
+    const vehicle = await findByPlate(req.params.plate);
     if (!vehicle) return errorResponse(res, 404, 'Vehicle not found.');
 
     if (req.user.role === 'PROVINCIAL' && req.user.provinceId && vehicle.provinceId !== req.user.provinceId)
@@ -74,21 +77,23 @@ const createVehicle = async (req, res, next) => {
 
 const updateVehicle = async (req, res, next) => {
   try {
+    const vehicle = await findByPlate(req.params.plate);
+    if (!vehicle) return errorResponse(res, 404, 'Vehicle not found.');
     const patch = buildVehicleUpdatePatch(req.body, req.user.id);
-    const n     = await dbAsync.vehicles.update({ _id: req.params.id }, { $set: patch });
-    if (!n) return errorResponse(res, 404, 'Vehicle not found.');
-    const updated = await dbAsync.vehicles.findOne({ _id: req.params.id });
+    await dbAsync.vehicles.update({ _id: vehicle._id }, { $set: patch });
+    const updated = await dbAsync.vehicles.findOne({ _id: vehicle._id });
     return successResponse(res, toVehicleDetail(updated, {}, req.user.role));
   } catch (err) { next(err); }
 };
 
 const deleteVehicle = async (req, res, next) => {
   try {
-    const n = await dbAsync.vehicles.update(
-      { _id: req.params.id },
+    const vehicle = await findByPlate(req.params.plate);
+    if (!vehicle) return errorResponse(res, 404, 'Vehicle not found.');
+    await dbAsync.vehicles.update(
+      { _id: vehicle._id },
       { $set: { status: VEHICLE_STATUS.DEREGISTERED, updatedAt: new Date().toISOString(), updatedBy: req.user.id } }
     );
-    if (!n) return errorResponse(res, 404, 'Vehicle not found.');
     return res.status(204).send();
   } catch (err) { next(err); }
 };
@@ -109,7 +114,7 @@ const getLastLocation = async (req, res, next) => {
 
 const getLocationHistory = async (req, res, next) => {
   try {
-    const vehicle = await dbAsync.vehicles.findOne({ _id: req.params.id });
+    const vehicle = await findByPlate(req.params.plate);
     if (!vehicle) return errorResponse(res, 404, 'Vehicle not found.');
 
     const toDate   = req.query.to   ? new Date(req.query.to)   : new Date();

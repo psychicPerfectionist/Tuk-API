@@ -6,7 +6,7 @@ const { toLocationResource } = require('../resources/index');
 // POST /api/v1/locations — device pushes a GPS ping
 const pushLocation = async (req, res, next) => {
   try {
-    const { vehicleId, latitude, longitude, speed, heading, accuracy, altitude, satellites, timestamp } = req.body;
+    const { registrationNumber, latitude, longitude, speed, heading, accuracy, altitude, satellites, timestamp } = req.body;
 
     const lat = parseFloat(latitude);
     const lng = parseFloat(longitude);
@@ -14,23 +14,20 @@ const pushLocation = async (req, res, next) => {
     if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180)
       return errorResponse(res, 400, 'Invalid coordinates. Latitude: -90 to 90. Longitude: -180 to 180.');
 
-    // Data model: coordinate domain validation (Sri Lanka bounds)
     if (!isWithinSriLanka(lat, lng))
       return errorResponse(res, 422, 'Coordinates are outside Sri Lanka operational boundary.');
 
-    const vehicle = await dbAsync.vehicles.findOne({ _id: vehicleId });
+    const vehicle = await dbAsync.vehicles.findOne({ registrationNumber: registrationNumber.toUpperCase() });
     if (!vehicle) return errorResponse(res, 404, 'Vehicle not found.');
     if (vehicle.status !== 'ACTIVE') return errorResponse(res, 403, 'Vehicle is not active. Location updates rejected.');
 
-    if (req.user.role === 'DEVICE' && req.user.vehicleId !== vehicleId)
+    if (req.user.role === 'DEVICE' && req.user.vehicleId !== vehicle._id)
       return errorResponse(res, 403, 'Device token is not authorised for this vehicle.');
 
-    // Data model: build entity via factory (consistent field normalisation)
-    const entity = createLocationPingEntity({ vehicleId, latitude: lat, longitude: lng, speed, heading, accuracy, altitude, satellites, deviceTimestamp: timestamp });
+    const entity = createLocationPingEntity({ vehicleId: vehicle._id, latitude: lat, longitude: lng, speed, heading, accuracy, altitude, satellites, deviceTimestamp: timestamp });
     const ping   = await dbAsync.locations.insert(entity);
 
-    // Update vehicle's denormalised last-known-location snapshot
-    await dbAsync.vehicles.update({ _id: vehicleId }, {
+    await dbAsync.vehicles.update({ _id: vehicle._id }, {
       $set: { lastLocation: { latitude: lat, longitude: lng, timestamp: ping.timestamp }, updatedAt: new Date().toISOString() }
     });
 
@@ -42,7 +39,7 @@ const pushLocation = async (req, res, next) => {
 // GET /api/v1/locations — police query with filters
 const getLocations = async (req, res, next) => {
   try {
-    const { from, to, vehicleId, provinceId, districtId, stationId } = req.query;
+    const { from, to, plate, provinceId, districtId, stationId } = req.query;
     const { page, limit, skip } = getPagination(req.query);
 
     let scopeProvinceId = provinceId;
@@ -51,10 +48,10 @@ const getLocations = async (req, res, next) => {
     if (req.user.role === 'DISTRICT'   && req.user.districtId) scopeDistrictId  = req.user.districtId;
 
     const vehicleQuery = {};
-    if (vehicleId)       vehicleQuery._id        = vehicleId;
-    if (scopeProvinceId) vehicleQuery.provinceId = scopeProvinceId;
-    if (scopeDistrictId)  vehicleQuery.districtId  = scopeDistrictId;
-    if (stationId)       vehicleQuery.stationId  = stationId;
+    if (plate)           vehicleQuery.registrationNumber = plate.toUpperCase();
+    if (scopeProvinceId) vehicleQuery.provinceId         = scopeProvinceId;
+    if (scopeDistrictId)  vehicleQuery.districtId          = scopeDistrictId;
+    if (stationId)       vehicleQuery.stationId           = stationId;
 
     let vehicleIds;
     if (Object.keys(vehicleQuery).length > 0) {
@@ -103,7 +100,7 @@ const getLiveView = async (req, res, next) => {
       // Resource model: live view is a simplified representation
       return {
         vehicleId:          v._id,
-        href:               `/api/v1/vehicles/${v._id}`,
+        href:               `/api/v1/vehicles/plate/${encodeURIComponent(v.registrationNumber)}`,
         registrationNumber: v.registrationNumber,
         driver:             driver ? driver.fullName : null,
         location:           toLocationResource(lastPings[0], v),

@@ -198,7 +198,7 @@ const getDrivers = async (req, res, next) => {
 
 const getDriverById = async (req, res, next) => {
   try {
-    const driver = await dbAsync.drivers.findOne({ _id: req.params.id });
+    const driver = await dbAsync.drivers.findOne({ nicNumber: req.params.nic.toUpperCase() });
     if (!driver) return errorResponse(res, 404, 'Driver not found.');
     const vehicles = await dbAsync.vehicles.findWithSort({ driverId: driver._id }, { registrationNumber: 1 });
     return successResponse(res, toDriverDetail(driver, vehicles, req.user.role));
@@ -216,19 +216,21 @@ const createDriver = async (req, res, next) => {
 
 const updateDriver = async (req, res, next) => {
   try {
+    const driver = await dbAsync.drivers.findOne({ nicNumber: req.params.nic.toUpperCase() });
+    if (!driver) return errorResponse(res, 404, 'Driver not found.');
     const patch = buildDriverUpdatePatch(req.body, req.user.id);
-    const n     = await dbAsync.drivers.update({ _id: req.params.id }, { $set: patch });
-    if (!n) return errorResponse(res, 404, 'Driver not found.');
-    return successResponse(res, toDriverListItem(await dbAsync.drivers.findOne({ _id: req.params.id })));
+    await dbAsync.drivers.update({ _id: driver._id }, { $set: patch });
+    return successResponse(res, toDriverListItem(await dbAsync.drivers.findOne({ _id: driver._id })));
   } catch (err) { next(err); }
 };
 
 const deleteDriver = async (req, res, next) => {
   try {
-    if (await dbAsync.vehicles.count({ driverId: req.params.id, status: 'ACTIVE' }) > 0)
+    const driver = await dbAsync.drivers.findOne({ nicNumber: req.params.nic.toUpperCase() });
+    if (!driver) return errorResponse(res, 404, 'Driver not found.');
+    if (await dbAsync.vehicles.count({ driverId: driver._id, status: 'ACTIVE' }) > 0)
       return errorResponse(res, 409, 'Cannot remove driver assigned to active vehicles.');
-    const n = await dbAsync.drivers.remove({ _id: req.params.id });
-    if (!n) return errorResponse(res, 404, 'Driver not found.');
+    await dbAsync.drivers.remove({ _id: driver._id });
     return res.status(204).send();
   } catch (err) { next(err); }
 };

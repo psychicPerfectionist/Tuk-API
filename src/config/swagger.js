@@ -111,14 +111,14 @@ All endpoints (except \`/auth/login\`) require a **Bearer JWT token** in the \`A
         LocationPing: {
           type: 'object',
           properties: {
-            _id:       { type: 'string' },
-            vehicleId: { type: 'string' },
-            latitude:  { type: 'number', example: 6.9271 },
-            longitude: { type: 'number', example: 79.8612 },
-            speed:     { type: 'number', example: 24.5, description: 'Speed in km/h' },
-            heading:   { type: 'number', example: 180, description: 'Heading in degrees (0-360)' },
-            accuracy:  { type: 'number', example: 5.0, description: 'GPS accuracy in metres' },
-            timestamp: { type: 'string', format: 'date-time' },
+            _id:                { type: 'string' },
+            registrationNumber: { type: 'string', example: 'WP ADD-0023' },
+            latitude:           { type: 'number', example: 6.9271 },
+            longitude:          { type: 'number', example: 79.8612 },
+            speed:              { type: 'number', example: 24.5, description: 'Speed in km/h' },
+            heading:            { type: 'number', example: 180, description: 'Heading in degrees (0–360)' },
+            accuracy:           { type: 'number', example: 5.0, description: 'GPS accuracy in metres' },
+            timestamp:          { type: 'string', format: 'date-time' },
           },
         },
         Driver: {
@@ -178,23 +178,105 @@ All endpoints (except \`/auth/login\`) require a **Bearer JWT token** in the \`A
         get: { tags: ['Districts'], summary: 'Get district with stations', responses: { 200: { description: 'District detail' }, 404: { description: 'Not found' } } },
       },
       '/stations': {
-        get:  { tags: ['Stations'], summary: 'List police stations', parameters: [{ name: 'districtId', in: 'query', schema: { type: 'string' } }, { name: 'provinceId', in: 'query', schema: { type: 'string' } }], responses: { 200: { description: 'Station list' } } },
-        post: { tags: ['Stations'], summary: 'Create station (ADMIN/PROVINCIAL)', requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Station' } } } }, responses: { 201: { description: 'Created' } } },
+        get: {
+          tags: ['Stations'], summary: 'List police stations',
+          parameters: [
+            { name: 'districtId', in: 'query', schema: { type: 'string' } },
+            { name: 'provinceId', in: 'query', schema: { type: 'string' } },
+            { name: 'page',       in: 'query', schema: { type: 'integer', default: 1 } },
+            { name: 'limit',      in: 'query', schema: { type: 'integer', default: 50 } },
+          ],
+          responses: { 200: { description: 'Station list' } },
+        },
+        post: {
+          tags: ['Stations'], summary: 'Create station (ADMIN/PROVINCIAL)',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: {
+              type: 'object',
+              required: ['name', 'districtId', 'provinceId'],
+              properties: {
+                name:          { type: 'string', example: 'Moratuwa Police Station' },
+                code:          { type: 'string', example: 'MRT' },
+                districtId:    { type: 'string', description: 'Internal district ID' },
+                provinceId:    { type: 'string', description: 'Internal province ID' },
+                stationType:   { type: 'string', enum: ['HEADQUARTERS','PROVINCIAL','DISTRICT','STATION'], default: 'STATION' },
+                address:       { type: 'string', example: '12 Main Street, Moratuwa' },
+                contactNumber: { type: 'string', example: '+94112645000' },
+                latitude:      { type: 'number', example: 6.7730, description: 'Within Sri Lanka bounds (5.9–9.9)' },
+                longitude:     { type: 'number', example: 79.8822, description: 'Within Sri Lanka bounds (79.5–81.9)' },
+              },
+            } } },
+          },
+          responses: { 201: { description: 'Created' } },
+        },
       },
       '/stations/{id}': {
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
         get:    { tags: ['Stations'], summary: 'Get station detail', responses: { 200: { description: 'Station' }, 404: { description: 'Not found' } } },
-        patch:  { tags: ['Stations'], summary: 'Update station', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } }, responses: { 200: { description: 'Updated' } } },
-        delete: { tags: ['Stations'], summary: 'Delete station (ADMIN)', responses: { 204: { description: 'Deleted' } } },
+        patch:  { tags: ['Stations'], summary: 'Update station (ADMIN/PROVINCIAL)', requestBody: { required: true, content: { 'application/json': { schema: {
+          type: 'object',
+          properties: {
+            name:          { type: 'string' },
+            address:       { type: 'string' },
+            contactNumber: { type: 'string', example: '+94112645000' },
+            isActive:      { type: 'boolean' },
+          },
+        } } } }, responses: { 200: { description: 'Updated' }, 404: { description: 'Not found' } } },
+        delete: { tags: ['Stations'], summary: 'Delete station (ADMIN)', responses: { 204: { description: 'Deleted' }, 409: { description: 'Station has registered vehicles' } } },
       },
       '/vehicles': {
-        get:  { tags: ['Vehicles'], summary: 'List tuk-tuks with last location', parameters: [{ name: 'provinceId', in: 'query', schema: { type: 'string' } }, { name: 'districtId', in: 'query', schema: { type: 'string' } }, { name: 'stationId', in: 'query', schema: { type: 'string' } }, { name: 'status', in: 'query', schema: { type: 'string', enum: ['ACTIVE','SUSPENDED','DEREGISTERED'] } }, { name: 'page', in: 'query', schema: { type: 'integer' } }, { name: 'limit', in: 'query', schema: { type: 'integer' } }], responses: { 200: { description: 'Vehicle list with pagination' } } },
-        post: { tags: ['Vehicles'], summary: 'Register new tuk-tuk', requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Vehicle' } } } }, responses: { 201: { description: 'Vehicle registered' } } },
+        get: {
+          tags: ['Vehicles'], summary: 'List tuk-tuks with last location',
+          parameters: [
+            { name: 'provinceId', in: 'query', schema: { type: 'string' }, description: 'Filter by province ID' },
+            { name: 'districtId',  in: 'query', schema: { type: 'string' }, description: 'Filter by district ID' },
+            { name: 'stationId',  in: 'query', schema: { type: 'string' }, description: 'Filter by station ID' },
+            { name: 'driverId',   in: 'query', schema: { type: 'string' }, description: 'Filter by driver ID' },
+            { name: 'status',     in: 'query', schema: { type: 'string', enum: ['ACTIVE','SUSPENDED','DEREGISTERED'] } },
+            { name: 'page',       in: 'query', schema: { type: 'integer', default: 1 } },
+            { name: 'limit',      in: 'query', schema: { type: 'integer', default: 50 } },
+          ],
+          responses: { 200: { description: 'Vehicle list with pagination' } },
+        },
+        post: {
+          tags: ['Vehicles'], summary: 'Register new tuk-tuk (ADMIN/PROVINCIAL)',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: {
+              type: 'object',
+              required: ['registrationNumber', 'deviceId'],
+              properties: {
+                registrationNumber: { type: 'string', example: 'WP ABC-1234', description: 'Unique plate number' },
+                deviceId:           { type: 'string', example: 'DEV-0211', description: 'Unique GPS device ID' },
+                make:               { type: 'string', example: 'Bajaj' },
+                model:              { type: 'string', example: 'RE Compact' },
+                colour:             { type: 'string', example: 'Yellow' },
+                yearOfRegistration: { type: 'integer', example: 2019 },
+                driverId:           { type: 'string', description: 'Internal driver ID' },
+                stationId:          { type: 'string', description: 'Internal station ID' },
+                provinceId:         { type: 'string', description: 'Internal province ID' },
+                districtId:         { type: 'string', description: 'Internal district ID' },
+              },
+            } } },
+          },
+          responses: { 201: { description: 'Vehicle registered' }, 409: { description: 'Registration number or deviceId already exists' } },
+        },
       },
       '/vehicles/plate/{plate}': {
         parameters: [{ name: 'plate', in: 'path', required: true, schema: { type: 'string' }, description: 'Vehicle registration number, e.g. WP CAB-0001' }],
         get:    { tags: ['Vehicles'], summary: 'Get vehicle detail with last location', responses: { 200: { description: 'Vehicle' }, 404: { description: 'Not found' } } },
-        patch:  { tags: ['Vehicles'], summary: 'Update vehicle', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } }, responses: { 200: { description: 'Updated' } } },
+        patch:  { tags: ['Vehicles'], summary: 'Update vehicle (ADMIN/PROVINCIAL)', requestBody: { required: true, content: { 'application/json': { schema: {
+          type: 'object',
+          properties: {
+            status:             { type: 'string', enum: ['ACTIVE','SUSPENDED','DEREGISTERED'] },
+            make:               { type: 'string', example: 'Bajaj' },
+            colour:             { type: 'string', example: 'Yellow' },
+            yearOfRegistration: { type: 'integer', example: 2020 },
+            driverId:           { type: 'string', description: 'Internal driver ID' },
+            stationId:          { type: 'string', description: 'Internal station ID' },
+          },
+        } } } }, responses: { 200: { description: 'Updated' }, 404: { description: 'Vehicle not found' } } },
         delete: { tags: ['Vehicles'], summary: 'Deregister vehicle (ADMIN)', responses: { 204: { description: 'Deregistered' } } },
       },
       '/vehicles/plate/{plate}/location': {
@@ -206,14 +288,52 @@ All endpoints (except \`/auth/login\`) require a **Bearer JWT token** in the \`A
         get: { tags: ['Vehicles'], summary: '📍 HISTORY: Movement log for a vehicle (time-window)', parameters: [{ name: 'from', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Start of time window (ISO 8601)' }, { name: 'to', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'End of time window (ISO 8601)' }, { name: 'limit', in: 'query', schema: { type: 'integer', default: 1000 } }], responses: { 200: { description: 'Movement history array' } } },
       },
       '/drivers': {
-        get:  { tags: ['Drivers'], summary: 'List drivers', responses: { 200: { description: 'Driver list' } } },
-        post: { tags: ['Drivers'], summary: 'Register driver', requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Driver' } } } }, responses: { 201: { description: 'Driver registered' } } },
+        get: {
+          tags: ['Drivers'], summary: 'List drivers',
+          parameters: [
+            { name: 'status', in: 'query', schema: { type: 'string', enum: ['ACTIVE','SUSPENDED','REVOKED'] } },
+            { name: 'page',   in: 'query', schema: { type: 'integer', default: 1 } },
+            { name: 'limit',  in: 'query', schema: { type: 'integer', default: 50 } },
+          ],
+          responses: { 200: { description: 'Driver list' } },
+        },
+        post: {
+          tags: ['Drivers'], summary: 'Register driver (ADMIN/PROVINCIAL)',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: {
+              type: 'object',
+              required: ['fullName', 'licenseNumber', 'nicNumber'],
+              properties: {
+                fullName:      { type: 'string', example: 'Kamal Perera' },
+                licenseNumber: { type: 'string', example: 'B1234567', description: 'Alphanumeric, no spaces' },
+                nicNumber:     { type: 'string', example: '198512345678V', description: 'Old format: 9 digits + V/X, New format: 12 digits' },
+                phoneNumber:   { type: 'string', example: '+94771234567' },
+                licenseExpiry: { type: 'string', format: 'date', example: '2027-06-30' },
+                dateOfBirth:   { type: 'string', format: 'date', example: '1985-03-15' },
+                address:       { type: 'string', example: '45 Galle Road, Colombo 03' },
+                provinceId:    { type: 'string', description: 'Internal province ID' },
+              },
+            } } },
+          },
+          responses: { 201: { description: 'Driver registered' }, 409: { description: 'NIC or license number already exists' } },
+        },
       },
       '/drivers/nic/{nic}': {
-        parameters: [{ name: 'nic', in: 'path', required: true, schema: { type: 'string' }, description: 'Driver NIC number, e.g. 198512345678V or 200012345678' }],
+        parameters: [{ name: 'nic', in: 'path', required: true, schema: { type: 'string' }, description: 'Driver NIC — old format: 198512345678V, new format: 200012345678' }],
         get:    { tags: ['Drivers'], summary: 'Get driver detail by NIC', responses: { 200: { description: 'Driver' }, 404: { description: 'Not found' } } },
-        patch:  { tags: ['Drivers'], summary: 'Update driver by NIC', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } }, responses: { 200: { description: 'Updated' } } },
-        delete: { tags: ['Drivers'], summary: 'Remove driver by NIC (ADMIN)', responses: { 204: { description: 'Removed' } } },
+        patch:  { tags: ['Drivers'], summary: 'Update driver by NIC (ADMIN/PROVINCIAL)', requestBody: { required: true, content: { 'application/json': { schema: {
+          type: 'object',
+          properties: {
+            fullName:      { type: 'string' },
+            licenseExpiry: { type: 'string', format: 'date', example: '2028-12-31' },
+            phoneNumber:   { type: 'string', example: '+94771234567' },
+            address:       { type: 'string' },
+            status:        { type: 'string', enum: ['ACTIVE','SUSPENDED','REVOKED'] },
+            provinceId:    { type: 'string' },
+          },
+        } } } }, responses: { 200: { description: 'Updated' }, 404: { description: 'Driver not found' } } },
+        delete: { tags: ['Drivers'], summary: 'Remove driver by NIC (ADMIN)', responses: { 204: { description: 'Removed' }, 409: { description: 'Driver assigned to active vehicles' } } },
       },
       '/locations': {
         post: { tags: ['Locations'], summary: '📡 Device: Push GPS ping', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['registrationNumber','latitude','longitude'], properties: { registrationNumber: { type: 'string', example: 'WP CAB-0001' }, latitude: { type: 'number' }, longitude: { type: 'number' }, speed: { type: 'number' }, heading: { type: 'number' }, accuracy: { type: 'number' }, altitude: { type: 'number' }, satellites: { type: 'integer' } } } } } }, responses: { 201: { description: 'Ping recorded' }, 403: { description: 'Vehicle inactive or device not authorized' } } },
@@ -228,7 +348,18 @@ All endpoints (except \`/auth/login\`) require a **Bearer JWT token** in the \`A
       '/users/{id}': {
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
         get:    { tags: ['Users'], summary: 'Get user (ADMIN)', responses: { 200: { description: 'User' } } },
-        patch:  { tags: ['Users'], summary: 'Update user (ADMIN)', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } }, responses: { 200: { description: 'Updated' } } },
+        patch:  { tags: ['Users'], summary: 'Update user (ADMIN)', requestBody: { required: true, content: { 'application/json': { schema: {
+          type: 'object',
+          properties: {
+            fullName:   { type: 'string' },
+            badgeNumber:{ type: 'string' },
+            isActive:   { type: 'boolean' },
+            password:   { type: 'string', minLength: 8, description: 'Replaces existing password if provided' },
+            provinceId: { type: 'string', description: 'Internal province ID (for PROVINCIAL role)' },
+            districtId: { type: 'string', description: 'Internal district ID (for DISTRICT role)' },
+            stationId:  { type: 'string', description: 'Internal station ID' },
+          },
+        } } } }, responses: { 200: { description: 'Updated' }, 404: { description: 'User not found' } } },
         delete: { tags: ['Users'], summary: 'Delete user (ADMIN)', responses: { 204: { description: 'Deleted' } } },
       },
     },

@@ -9,6 +9,8 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const routes = require('./routes/index');
 const { globalErrorHandler, notFoundHandler } = require('./middleware/response');
+const authCtrl = require('./controllers/authController');
+const V = require('./validators/index');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,8 +19,7 @@ const isProd = process.env.NODE_ENV === 'production';
 
 // ── 1. Trust proxy (nginx sits in front in production) ────────────────────────
 // Required for accurate req.ip and rate-limit keying when behind nginx
-// if (isProd)
-app.set('trust proxy', 1);
+if (isProd) app.set('trust proxy', 1);
 
 // ── 2. Helmet — HTTP security headers ─────────────────────────────────────────
 // Sets: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection,
@@ -31,7 +32,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'"],   // needed for Swagger UI
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:'],
-      connectSrc: ["'self'", 'http://localhost:3000', 'https://tuk-api-production.up.railway.app'],  // allow API calls from Swagger UI
+      connectSrc: ["'self'"],
     },
   },
   hsts: isProd
@@ -64,6 +65,9 @@ app.use(cors({
 // 10kb is plenty for any API request body — prevents large payload attacks
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// ── 4.1 Legacy auth alias for clients using /auth/login directly ───────────────
+app.post('/auth/login', V.validateLogin, authCtrl.login);
 
 // ── 5. HTTP Parameter Pollution prevention ────────────────────────────────────
 // Prevents ?status=ACTIVE&status=SUSPENDED being passed as an array
@@ -124,15 +128,13 @@ app.use((req, res, next) => {
 });
 
 // ── 10. Swagger UI ────────────────────────────────────────────────────────────
-// Disable Swagger in production or gate it behind auth — it exposes API schema
-if (!isProd) {
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-    customSiteTitle: 'Tuk-Tuk Tracking API | Sri Lanka Police',
-    customCss: '.swagger-ui .topbar { background-color: #1a237e; }',
-    swaggerOptions: { persistAuthorization: true },
-  }));
-  app.get('/api-spec.json', (req, res) => res.json(swaggerSpec));
-}
+// Available in both development and production environments
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: 'Tuk-Tuk Tracking API | Sri Lanka Police',
+  customCss: '.swagger-ui .topbar { background-color: #1a237e; }',
+  swaggerOptions: { persistAuthorization: true },
+}));
+app.get('/api-spec.json', (req, res) => res.json(swaggerSpec));
 
 // ── 11. API routes ────────────────────────────────────────────────────────────
 app.use('/api/v1', routes);
@@ -141,7 +143,7 @@ app.use('/api/v1', routes);
 app.get('/', (req, res) => res.json({
   service: 'Sri Lanka Police – Tuk-Tuk Tracking API',
   version: '1.0.0',
-  docs: isProd ? 'Swagger UI disabled in production.' : '/api-docs',
+  docs: '/api-docs',
   health: '/api/v1/health',
 }));
 

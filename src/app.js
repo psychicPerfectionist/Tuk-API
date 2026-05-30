@@ -9,6 +9,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const routes = require('./routes/index');
 const { globalErrorHandler, notFoundHandler } = require('./middleware/response');
+const bootstrap = require('./bootstrap');
 const authCtrl = require('./controllers/authController');
 const V = require('./validators/index');
 
@@ -157,11 +158,16 @@ app.use(globalErrorHandler);
 
 // ── 14. Start server ──────────────────────────────────────────────────────────
 if (require.main === module) {
-  app.listen(PORT, HOST, () => {
-    console.log('\n🚦 Tuk-Tuk Tracking API');
-    console.log(`   Running  : http://${HOST}:${PORT}  (internal only — nginx proxies externally)`);
-    if (!isProd) console.log(`   API Docs : http://${HOST}:${PORT}/api-docs`);
-    console.log(`   Env      : ${process.env.NODE_ENV || 'development'}\n`);
+  bootstrap().then(() => {
+    app.listen(PORT, HOST, () => {
+      console.log('\n🚦 Tuk-Tuk Tracking API');
+      console.log(`   Running  : http://${HOST}:${PORT}  (internal only — nginx proxies externally)`);
+      if (!isProd) console.log(`   API Docs : http://${HOST}:${PORT}/api-docs`);
+      console.log(`   Env      : ${process.env.NODE_ENV || 'development'}\n`);
+    });
+  }).catch(err => {
+    console.error('Bootstrap failed:', err.message);
+    process.exit(1);
   });
 }
 

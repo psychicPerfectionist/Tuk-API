@@ -95,9 +95,10 @@ const deleteVehicle = async (req, res, next) => {
 
 const getLastLocation = async (req, res, next) => {
   try {
-    const vehicle = await dbAsync.vehicles.findOne({ _id: req.params.id });
+    const plate = decodeURIComponent(req.params.plate).toUpperCase();
+    const vehicle = await dbAsync.vehicles.findOne({ registrationNumber: plate });
     if (!vehicle) return errorResponse(res, 404, 'Vehicle not found.');
-    const lastPings = await dbAsync.locations.findWithSort({ vehicleId: req.params.id }, { timestamp: -1 }, 1);
+    const lastPings = await dbAsync.locations.findWithSort({ vehicleId: vehicle._id }, { timestamp: -1 }, 1);
     if (!lastPings.length) return errorResponse(res, 404, 'No location data available for this vehicle.');
     return successResponse(res, {
       vehicle: { id: vehicle._id, registrationNumber: vehicle.registrationNumber, href: `/api/v1/vehicles/${vehicle._id}` },

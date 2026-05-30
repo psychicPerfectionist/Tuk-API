@@ -164,24 +164,18 @@ All endpoints (except \`/auth/login\`) require a **Bearer JWT token** in the \`A
       },
       '/auth/me': { get: { tags: ['Auth'], summary: 'Get current user profile', responses: { 200: { description: 'Current user' } } } },
       '/provinces': {
-        get:  { tags: ['Provinces'], summary: 'List all 9 provinces', responses: { 200: { description: 'Province list' } } },
-        post: { tags: ['Provinces'], summary: 'Create province (ADMIN)', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['name','code'], properties: { name: { type: 'string' }, code: { type: 'string' }, sinhaleName: { type: 'string' }, tamilName: { type: 'string' } } } } } }, responses: { 201: { description: 'Created' } } },
+        get: { tags: ['Provinces'], summary: 'List all 9 provinces', responses: { 200: { description: 'Province list' } } },
       },
       '/provinces/{id}': {
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        get:    { tags: ['Provinces'], summary: 'Get province with districts', responses: { 200: { description: 'Province detail' }, 404: { description: 'Not found' } } },
-        patch:  { tags: ['Provinces'], summary: 'Update province (ADMIN)', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } }, responses: { 200: { description: 'Updated' } } },
-        delete: { tags: ['Provinces'], summary: 'Delete province (ADMIN)', responses: { 204: { description: 'Deleted' }, 409: { description: 'Has districts' } } },
+        get: { tags: ['Provinces'], summary: 'Get province with districts', responses: { 200: { description: 'Province detail' }, 404: { description: 'Not found' } } },
       },
       '/districts': {
-        get:  { tags: ['Districts'], summary: 'List all 25 districts', parameters: [{ name: 'provinceId', in: 'query', schema: { type: 'string' } }], responses: { 200: { description: 'District list' } } },
-        post: { tags: ['Districts'], summary: 'Create district (ADMIN)', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['name','code','provinceId'], properties: { name: { type: 'string' }, code: { type: 'string' }, provinceId: { type: 'string' } } } } } }, responses: { 201: { description: 'Created' } } },
+        get: { tags: ['Districts'], summary: 'List all 25 districts', parameters: [{ name: 'provinceId', in: 'query', schema: { type: 'string' } }], responses: { 200: { description: 'District list' } } },
       },
       '/districts/{id}': {
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        get:    { tags: ['Districts'], summary: 'Get district with stations', responses: { 200: { description: 'District detail' }, 404: { description: 'Not found' } } },
-        patch:  { tags: ['Districts'], summary: 'Update district (ADMIN)', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } }, responses: { 200: { description: 'Updated' } } },
-        delete: { tags: ['Districts'], summary: 'Delete district (ADMIN)', responses: { 204: { description: 'Deleted' } } },
+        get: { tags: ['Districts'], summary: 'Get district with stations', responses: { 200: { description: 'District detail' }, 404: { description: 'Not found' } } },
       },
       '/stations': {
         get:  { tags: ['Stations'], summary: 'List police stations', parameters: [{ name: 'districtId', in: 'query', schema: { type: 'string' } }, { name: 'provinceId', in: 'query', schema: { type: 'string' } }], responses: { 200: { description: 'Station list' } } },
@@ -203,9 +197,9 @@ All endpoints (except \`/auth/login\`) require a **Bearer JWT token** in the \`A
         patch:  { tags: ['Vehicles'], summary: 'Update vehicle', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } }, responses: { 200: { description: 'Updated' } } },
         delete: { tags: ['Vehicles'], summary: 'Deregister vehicle (ADMIN)', responses: { 204: { description: 'Deregistered' } } },
       },
-      '/vehicles/{id}/location': {
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
-        get: { tags: ['Vehicles'], summary: '🔴 LIVE: Get last known location of a tuk-tuk', responses: { 200: { description: 'Last GPS ping' }, 404: { description: 'No location data' } } },
+      '/vehicles/plate/{plate}/location': {
+        parameters: [{ name: 'plate', in: 'path', required: true, schema: { type: 'string' }, description: 'Vehicle registration number, e.g. WP CAB-0001', example: 'WP CAB-0001' }],
+        get: { tags: ['Vehicles'], summary: '🔴 LIVE: Get last known location by registration number', responses: { 200: { description: 'Last GPS ping' }, 404: { description: 'Vehicle not found or no location data' } } },
       },
       '/vehicles/{id}/history': {
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],

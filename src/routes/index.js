@@ -29,18 +29,12 @@ router.post('/auth/register', authenticate, authorize(ROLES.ADMIN), V.validateRe
 router.get ('/auth/me',       authenticate, authCtrl.me);
 
 // ── PROVINCES ─────────────────────────────────────────────────────────────────
-router.get   ('/provinces',     authenticate, authorize(...ALL_OFFICERS, ROLES.DEVICE), V.validatePaginationQuery, getProvinces);
-router.post  ('/provinces',     authenticate, authorize(ROLES.ADMIN), V.validateCreateProvince, createProvince);
-router.get   ('/provinces/:id', authenticate, authorize(...ALL_OFFICERS), getProvinceById);
-router.patch ('/provinces/:id', authenticate, authorize(ROLES.ADMIN), updateProvince);
-router.delete('/provinces/:id', authenticate, authorize(ROLES.ADMIN), deleteProvince);
+router.get('/provinces',     authenticate, authorize(...ALL_OFFICERS, ROLES.DEVICE), V.validatePaginationQuery, getProvinces);
+router.get('/provinces/:id', authenticate, authorize(...ALL_OFFICERS), getProvinceById);
 
 // ── DISTRICTS ─────────────────────────────────────────────────────────────────
-router.get   ('/districts',     authenticate, authorize(...ALL_OFFICERS), V.validatePaginationQuery, getDistricts);
-router.post  ('/districts',     authenticate, authorize(ROLES.ADMIN), V.validateCreateDistrict, createDistrict);
-router.get   ('/districts/:id', authenticate, authorize(...ALL_OFFICERS), getDistrictById);
-router.patch ('/districts/:id', authenticate, authorize(ROLES.ADMIN), updateDistrict);
-router.delete('/districts/:id', authenticate, authorize(ROLES.ADMIN), deleteDistrict);
+router.get('/districts',     authenticate, authorize(...ALL_OFFICERS), V.validatePaginationQuery, getDistricts);
+router.get('/districts/:id', authenticate, authorize(...ALL_OFFICERS), getDistrictById);
 
 // ── STATIONS ──────────────────────────────────────────────────────────────────
 router.get   ('/stations',     authenticate, authorize(...ALL_OFFICERS), V.validatePaginationQuery, getStations);
@@ -55,7 +49,7 @@ router.post  ('/vehicles',              authenticate, authorize(...ADMIN_PROV), 
 router.get   ('/vehicles/:id',          authenticate, authorize(...ALL_OFFICERS), vehicleCtrl.getVehicleById);
 router.patch ('/vehicles/:id',          authenticate, authorize(...ADMIN_PROV),  V.validateUpdateVehicle,   vehicleCtrl.updateVehicle);
 router.delete('/vehicles/:id',          authenticate, authorize(ROLES.ADMIN),   vehicleCtrl.deleteVehicle);
-router.get   ('/vehicles/:id/location', authenticate, authorize(...ALL_OFFICERS), vehicleCtrl.getLastLocation);
+router.get   ('/vehicles/plate/:plate/location', authenticate, authorize(...ALL_OFFICERS), vehicleCtrl.getLastLocation);
 router.get   ('/vehicles/:id/history',  authenticate, authorize(...ALL_OFFICERS), V.validateHistoryQuery, vehicleCtrl.getLocationHistory);
 
 // ── LOCATIONS ─────────────────────────────────────────────────────────────────
